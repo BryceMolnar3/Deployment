@@ -136,6 +136,66 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
         {
           verse_number: 4,
           verse_text: "Nec destituant vos quorundam vaniloquentia insinuantium ut vos avertant a veritate evangelii quod a me predicatur."
+        },
+        {
+          verse_number: 5,
+          verse_text: "Et nunc faciet deus ut qui sunt ex me ad profectum veritatis evangelii deservientes et facientes benignitatem operumque salutis vitae aeternae."
+        },
+        {
+          verse_number: 6,
+          verse_text: "Et nunc palam sunt vincula mea quae patior in christo in quibus laetor et gaudeo."
+        },
+        {
+          verse_number: 7,
+          verse_text: "Et hoc mihi est ad salutem perpetuam quod factum orationibus vestris et administrante spiritu sancto sive per vitam sive per mortem."
+        },
+        {
+          verse_number: 8,
+          verse_text: "Est enim mihi vita in christo et mori gaudium."
+        },
+        {
+          verse_number: 9,
+          verse_text: "Et in ipsum in vobis faciet misercordiam suam. Ut eandem dilectionem habeatis. et sitis unianimes."
+        },
+        {
+          verse_number: 10,
+          verse_text: "Ergo dilectissimi ut audistis praesentia mei. Ita retinete et facite in timore d(e)i et erit vobis vita in aeternum."
+        },
+        {
+          verse_number: 11,
+          verse_text: "Est eni(m) d(eu)s qui operatur in vos"
+        },
+        {
+          verse_number: 12,
+          verse_text: "et facite sine retractu quaecumque facitis"
+        },
+        {
+          verse_number: 13,
+          verse_text: "et quod est dilectissimi gaudete in χρ(ist)o et praecauete sordidos in lucro"
+        },
+        {
+          verse_number: 14,
+          verse_text: "omnes sint petitiones vestrae palam aput d(eu)m. et estote firmi in sensu χρ(ist)i"
+        },
+        {
+          verse_number: 15,
+          verse_text: "et quae integra et vera et pudica et iusta et amabilia facite"
+        },
+        {
+          verse_number: 16,
+          verse_text: "et quae audistis. et accepistis. in corde retinete et erit vobis pax"
+        },
+        {
+          verse_number: 17,
+          verse_text: "Salutant vos s(an)c(t)i"
+        },
+        {
+          verse_number: 18,
+          verse_text: "Gratia d(omi)ni ih(es)u cum sp(irit)u vestro"
+        },
+        {
+          verse_number: 19,
+          verse_text: "et facite legi colosensium vobis."
         }
       ]
     },
@@ -167,6 +227,66 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
         {
           verse_number: 4,
           verse_text: "Ne destituat vos quorundam vaniloquium insinuantium ut vos avertant a veritate evangelii quod a me praedicatum est."
+        },
+        {
+          verse_number: 5,
+          verse_text: "Et nunc faciet deus ut qui sunt ex me ad profectum veritatis evangelii deservientes et facientes benignitatem operumque salutis vitae aeternae."
+        },
+        {
+          verse_number: 6,
+          verse_text: "Et nunc palam sunt vincula mea quae patior in christo in quibus laetor et gaudeo."
+        },
+        {
+          verse_number: 7,
+          verse_text: "Et hoc mihi est ad salutem perpetuam quod factum orationibus vestris et administrante spiritu sancto sive per vitam sive per mortem."
+        },
+        {
+          verse_number: 8,
+          verse_text: "Est enim mihi vita in christo et mori gaudium."
+        },
+        {
+          verse_number: 9,
+          verse_text: "Et in ipsum in vobis faciet misercordiam suam. Ut eandem dilectionem habeatis. et sitis unianimes."
+        },
+        {
+          verse_number: 10,
+          verse_text: "Ergo dilectissimi ut audistis praesentia mei. Ita retinete et facite in timore d(e)i et erit vobis vita in aeternum."
+        },
+        {
+          verse_number: 11,
+          verse_text: "Est eni(m) d(eu)s qui operatur in vos"
+        },
+        {
+          verse_number: 12,
+          verse_text: "et facite sine retractu quaecumque facitis"
+        },
+        {
+          verse_number: 13,
+          verse_text: "et quod est dilectissimi gaudete in χρ(ist)o et praecauete sordidos in lucro"
+        },
+        {
+          verse_number: 14,
+          verse_text: "omnes sint petitiones vestrae palam aput d(eu)m. et estote firmi in sensu χρ(ist)i"
+        },
+        {
+          verse_number: 15,
+          verse_text: "et quae integra et vera et pudica et iusta et amabilia facite"
+        },
+        {
+          verse_number: 16,
+          verse_text: "et quae audistis. et accepistis. in corde retinete et erit vobis pax"
+        },
+        {
+          verse_number: 17,
+          verse_text: "Salutant vos s(an)c(t)i"
+        },
+        {
+          verse_number: 18,
+          verse_text: "Gratia d(omi)ni ih(es)u cum sp(irit)u vestro"
+        },
+        {
+          verse_number: 19,
+          verse_text: "et facite legi colosensium vobis."
         }
       ]
     },
@@ -214,6 +334,50 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
         {
           verse_number: 8,
           verse_text: "Est enim mihi vita in christo et mori gaudium."
+        },
+        {
+          verse_number: 9,
+          verse_text: "Et in ipsum in vobis faciet misercordiam suam. Ut eandem dilectionem habeatis. et sitis unianimes."
+        },
+        {
+          verse_number: 10,
+          verse_text: "Ergo dilectissimi ut audistis praesentia mei. Ita retinete et facite in timore d(e)i et erit vobis vita in aeternum."
+        },
+        {
+          verse_number: 11,
+          verse_text: "Est eni(m) d(eu)s qui operatur in vos"
+        },
+        {
+          verse_number: 12,
+          verse_text: "et facite sine retractu quaecumque facitis"
+        },
+        {
+          verse_number: 13,
+          verse_text: "et quod est dilectissimi gaudete in χρ(ist)o et praecauete sordidos in lucro"
+        },
+        {
+          verse_number: 14,
+          verse_text: "omnes sint petitiones vestrae palam aput d(eu)m. et estote firmi in sensu χρ(ist)i"
+        },
+        {
+          verse_number: 15,
+          verse_text: "et quae integra et vera et pudica et iusta et amabilia facite"
+        },
+        {
+          verse_number: 16,
+          verse_text: "et quae audistis. et accepistis. in corde retinete et erit vobis pax"
+        },
+        {
+          verse_number: 17,
+          verse_text: "Salutant vos s(an)c(t)i"
+        },
+        {
+          verse_number: 18,
+          verse_text: "Gratia d(omi)ni ih(es)u cum sp(irit)u vestro"
+        },
+        {
+          verse_number: 19,
+          verse_text: "et facite legi colosensium vobis."
         }
       ]
     }
