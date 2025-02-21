@@ -1,13 +1,14 @@
 import React from 'react';
 import { Box, Flex, Heading, Text, Image, VStack } from '@chakra-ui/react';
 import NavigationBar from './NavigationBar.tsx';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { manuscripts } from '../data/manuscripts.ts';
 
 function ManuscriptViewer() {
   const navigate = useNavigate();
   const location = useLocation();
-  const manuscriptId = location.state?.manuscriptId || null;
+  const { id } = useParams();
+  const manuscriptId = id || location.state?.manuscriptId || null;
 
   if (!manuscriptId) {
     return <Box>No manuscript ID provided</Box>;
