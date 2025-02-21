@@ -110,10 +110,6 @@ function ManuscriptViewer() {
     {
       verse_number: 19,
       verse_text: "et facite legi colosensium vobis."
-    },
-    {
-      verse_number: 20,
-      verse_text: "et quod est dilectissimi gaudete in χρ(ist)o et praecauete sordidos in lucro"
     }
   ];
 
@@ -179,9 +175,12 @@ function ManuscriptViewer() {
               >
                 <Text whiteSpace="pre-line" fontWeight="normal">
                   {verses.map(verse => (
-                    <Text key={verse.verse_number}>
-                      {<sup>{verse.verse_number}</sup>}{verse.verse_text}
-                    </Text>
+                    <React.Fragment key={verse.verse_number}>
+                      <Text>
+                        {<sup>{verse.verse_number}</sup>}{verse.verse_text}
+                      </Text>
+                      <br/>
+                    </React.Fragment>
                   ))}
                 </Text>
               </Box>
