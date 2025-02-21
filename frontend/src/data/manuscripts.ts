@@ -9,6 +9,7 @@ export interface Manuscript {
   materials: string;
   format_description: string;
   date: string;
+  image_src: string;
   verses: {
     verse_number: number;
     verse_text: string;
@@ -27,6 +28,7 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
     materials: "Parchment",
     format_description: "Single Column",
     date: "541-546",
+    image_src: "/images/manuscript-image.png",
     verses: [
       {
         verse_number: 1,
@@ -117,6 +119,7 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
       materials: "Vellum",
       format_description: "Three Columns",
       date: "325-350",
+      image_src: "/images/manuscript-image2.png",
       verses: [
         {
           verse_number: 1,
@@ -147,6 +150,7 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
       materials: "Parchment",
       format_description: "Two Columns",
       date: "400-440",
+      image_src: "/images/manuscript-image3.png",
       verses: [
         {
           verse_number: 1,
@@ -163,6 +167,53 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
         {
           verse_number: 4,
           verse_text: "Ne destituat vos quorundam vaniloquium insinuantium ut vos avertant a veritate evangelii quod a me praedicatum est."
+        }
+      ]
+    },
+    "04": {
+      ms_id: "Saint Catherine's Monastery, Sinai",
+      sigla: "04",
+      other_names: "Codex Sinaiticus",
+      total_folia: 400,
+      laod_folia: "245r-246v",
+      dimensions: "38×34 cm",
+      place_of_origin: "Caesarea Maritima",
+      materials: "Parchment",
+      format_description: "Four Columns",
+      date: "330-360",
+      image_src: "/images/manuscript-image4.png",
+      verses: [
+        {
+          verse_number: 1,
+          verse_text: "Paulus apostolus non ab hominibus neque per hominem sed per iesum christum fratribus qui sunt laodiciae."
+        },
+        {
+          verse_number: 2,
+          verse_text: "Gratia vobis et pax a deo patre et domino iesu christo."
+        },
+        {
+          verse_number: 3,
+          verse_text: "Gratias ago christo per omnem orationem meam quod permanentes estis in eo et perseverantes in operibus eius promissum expectantes in diem iudicii."
+        },
+        {
+          verse_number: 4,
+          verse_text: "Neque destituant vos quorundam vaniloquentia insinuantium ut vos avertant a veritate evangelii quod a me praedicatur."
+        },
+        {
+          verse_number: 5,
+          verse_text: "Et nunc faciet deus ut qui sunt ex me ad profectum veritatis evangelii deservientes et facientes benignitatem operumque salutis vitae aeternae."
+        },
+        {
+          verse_number: 6,
+          verse_text: "Et nunc palam sunt vincula mea quae patior in christo in quibus laetor et gaudeo."
+        },
+        {
+          verse_number: 7,
+          verse_text: "Et hoc mihi est ad salutem perpetuam quod factum orationibus vestris et administrante spiritu sancto sive per vitam sive per mortem."
+        },
+        {
+          verse_number: 8,
+          verse_text: "Est enim mihi vita in christo et mori gaudium."
         }
       ]
     }

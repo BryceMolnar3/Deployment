@@ -108,12 +108,10 @@ function ManuscriptViewer() {
 
             <Box flex={1} display="flex" justifyContent="flex-start">
               <Image 
-                src="/images/manuscript-image.png" 
-                alt="Manuscript page"
+                src={manuscripts[manuscriptId].image_src}
+                alt={`${manuscripts[manuscriptId].other_names} manuscript page`}
                 maxH="900px"
                 objectFit="contain"
-                border="1px solid"
-                borderColor="gray.300"
               />
             </Box>
           </Flex>
