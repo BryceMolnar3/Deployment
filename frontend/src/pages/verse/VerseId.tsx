@@ -12,7 +12,7 @@ interface LocationState {
 function VerseId() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { verseNumber, verseText } = location.state as LocationState;
+  const { verseNumber } = location.state as LocationState;
 
   return (
     <Box>
@@ -32,7 +32,6 @@ function VerseId() {
                   mb={2} 
                   cursor="pointer"
                   color="blue.600"
-                  _hover={{ textDecoration: 'underline' }}
                   onClick={function() {
                     navigate(`/manuscript-viewer/${manuscriptId}`, {
                       state: { manuscriptId }
