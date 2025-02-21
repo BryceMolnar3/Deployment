@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Flex, Heading, Text, Image, IconButton } from '@chakra-ui/react';
+import { Box, Flex, Heading, Text, Image, IconButton, VStack } from '@chakra-ui/react';
 import { SettingsIcon } from '@chakra-ui/icons';
 
 interface ManuscriptMetadata {
@@ -37,17 +37,22 @@ function ManuscriptViewer() {
         justifyContent="space-between" 
         alignItems="center"
       >
-        <Flex gap={4} alignItems="center">
+        <Flex flex={1} gap={4} alignItems="center">
           <Image 
             src="/images/Hamilton_Logo.png"
             alt="Hamilton College Logo"
-            height="40px"
+            height="80px"
             marginRight={4}
           />
-          <Text>Search database</Text>
-          <Text>New data entry</Text>
-          <Text>Manual differentiation</Text>
-          <Text>Phylogenetic analysis</Text>
+          <Flex flex={1} justifyContent="center">
+            <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>Search <br />database</Text>
+            <Text color="gray.600" mx={8} my={2} fontSize={25} fontWeight={100}>|</Text>
+            <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>New <br />data entry</Text>
+            <Text color="gray.600" mx={8} my={2} fontSize={25} fontWeight={100}>|</Text>
+            <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>Manual<br />differentiation</Text>
+            <Text color="gray.600" mx={8} my={2} fontSize={25} fontWeight={100}>|</Text>
+            <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>Phylogenetic<br />analysis</Text>
+          </Flex>
         </Flex>
         <IconButton
           aria-label="Settings"
@@ -57,39 +62,62 @@ function ManuscriptViewer() {
       </Flex>
 
       <Box>
-        <Box bg="navy" py={4} px={6}>
-          <Heading color="white" size="md">Manuscript View</Heading>
+        <Box bg="navy" py={8} px={6}>
+          <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manuscript View</Heading>
         </Box>
 
-        <Box p={6}>
-          <Flex gap={8}>
-            <Box flex={1}>
-              <Flex justify="space-between" mb={4}>
-                <Text>MS ID: <u>{manuscript.ms_id}</u></Text>
-                <Text>Sigla: <u>{manuscript.sigla}</u></Text>
+        <Box ml={8} p={6}>
+          <Flex gap={12}>
+            <Box flex={2} maxW="65%">
+              <Flex mb={6}>
+                <Text fontSize="lg" fontWeight="normal" w="180px">MS ID:</Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1}><u>{manuscript.ms_id}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8}>Sigla: <u>{manuscript.sigla}</u></Text>
               </Flex>
               
-              <Text mb={2}>Other Names: <u>{manuscript.other_names}</u></Text>
-              <Text mb={2}>Total Folia: <u>{manuscript.total_folia}</u></Text>
-              <Text mb={2}>Laod. Folia: <u>{manuscript.laod_folia}</u></Text>
-              <Text mb={2}>Dimensions: <u>{manuscript.dimensions}</u></Text>
-              <Text mb={2}>Place of Origin: <u>{manuscript.place_of_origin}</u></Text>
-              <Text mb={2}>Materials: <u>{manuscript.materials}</u></Text>
-              <Flex justify="space-between" mb={4}>
-                <Text mb={2}>Format Description: <u>{manuscript.format_description}</u></Text>
-                <Text mb={2}>Date: <u>{manuscript.date}</u></Text>
+              <VStack spacing={4} align="stretch">
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Other Names:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.other_names}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Total Folia:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.total_folia}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Laod. Folia:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.laod_folia}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Dimensions:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.dimensions}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Place of Origin:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.place_of_origin}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Materials:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.materials}</u></Text>
+                </Flex>
+              </VStack>
+
+              <Flex mt={4} mb={4}>
+                <Text fontSize="lg" fontWeight="normal" w="180px">Format Description:</Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1}><u>{manuscript.format_description}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8}>Date: <u>{manuscript.date}</u></Text>
               </Flex>
 
               <Box 
-                mt={6} 
                 border="1px solid" 
                 borderColor="gray.300" 
                 borderRadius="md"
                 p={4}
                 height="500px"
                 overflowY="auto"
+                bg="white"
               >
-                <Text whiteSpace="pre-line">
+                <Text whiteSpace="pre-line" fontWeight="normal">
                   Paulus apostolus non ab hominibus. Neque per hominem sed per in(esu)m xp(istu)m. Fratribus qui sunt laodiciae.
 
                   Gratia vobis es pax a d(e)o patre et d(omi)no ih(es)u xp(ist)o.
@@ -98,12 +126,14 @@ function ManuscriptViewer() {
               </Box>
             </Box>
 
-            <Box flex={1}>
+            <Box flex={1} display="flex" justifyContent="flex-start">
               <Image 
                 src="/images/manuscript-image.png" 
                 alt="Manuscript page"
-                maxH="800px"
+                maxH="900px"
                 objectFit="contain"
+                border="1px solid"
+                borderColor="gray.300"
               />
             </Box>
           </Flex>
