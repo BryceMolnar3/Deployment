@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Flex, Heading, Text, Image, IconButton } from '@chakra-ui/react';
+import { Box, Flex, Heading, Text, Image, IconButton, VStack } from '@chakra-ui/react';
 import { SettingsIcon } from '@chakra-ui/icons';
+import NavigationBar from './NavigationBar.tsx';
 
 interface ManuscriptMetadata {
   ms_id: string;
@@ -16,7 +17,6 @@ interface ManuscriptMetadata {
 }
 
 function ManuscriptViewer() {
-  // Replace with actual manuscript data from the database
   const manuscript: ManuscriptMetadata = {
     ms_id: "Fulda, Hochschul- und Landesbibliothek, Bonifatianus 1",
     sigla: "01",
@@ -32,80 +32,85 @@ function ManuscriptViewer() {
 
   return (
     <Box>
-      {/* Navigation Bar */}
-      <Flex 
-        bg="beige" 
-        p={4} 
-        justifyContent="space-between" 
-        alignItems="center"
-      >
-        <Flex gap={4}>
-          <Text>Search database</Text>
-          <Text>New data entry</Text>
-          <Text>Manual differentiation</Text>
-          <Text>Phylogenetic analysis</Text>
-        </Flex>
-        <IconButton
-          aria-label="Settings"
-          as={SettingsIcon}
-          variant="ghost"
-        />
-      </Flex>
+      <NavigationBar />
 
-      {/* Main Content */}
-      <Box p={6}>
-        <Box bg="navy" py={4} px={6} mb={6}>
-          <Heading color="white" size="lg">Manuscript View</Heading>
+      <Box>
+        <Box bg="navy" py={8} px={6}>
+          <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manuscript View</Heading>
         </Box>
 
-        {/* Manuscript Details */}
-        <Flex gap={8}>
-          <Box flex={1}>
-            <Flex justify="space-between" mb={4}>
-              <Text>MS ID: {manuscript.ms_id}</Text>
-              <Text>Sigla: {manuscript.sigla}</Text>
-            </Flex>
-            
-            <Text mb={2}>Other Names: {manuscript.other_names}</Text>
-            <Text mb={2}>Total Folia: {manuscript.total_folia}</Text>
-            <Text mb={2}>Laod. Folia: {manuscript.laod_folia}</Text>
-            <Text mb={2}>Dimensions: {manuscript.dimensions}</Text>
-            <Text mb={2}>Place of Origin: {manuscript.place_of_origin}</Text>
-            <Text mb={2}>Materials: {manuscript.materials}</Text>
-            <Text mb={2}>Format Description: {manuscript.format_description}</Text>
-            <Text mb={2}>Date: {manuscript.date}</Text>
+        <Box ml={8} p={6}>
+          <Flex gap={12}>
+            <Box flex={2} maxW="65%">
+              <Flex mb={6}>
+                <Text fontSize="lg" fontWeight="normal" w="180px">MS ID:</Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1}><u>{manuscript.ms_id}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8}>Sigla: <u>{manuscript.sigla}</u></Text>
+              </Flex>
+              
+              <VStack spacing={4} align="stretch">
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Other Names:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.other_names}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Total Folia:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.total_folia}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Laod. Folia:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.laod_folia}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Dimensions:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.dimensions}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Place of Origin:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.place_of_origin}</u></Text>
+                </Flex>
+                <Flex>
+                  <Text fontSize="lg" fontWeight="normal" w="180px">Materials:</Text>
+                  <Text fontSize="lg" fontWeight="normal"><u>{manuscript.materials}</u></Text>
+                </Flex>
+              </VStack>
 
-            {/* Text Content Area */}
-            <Box 
-              mt={6} 
-              border="1px solid" 
-              borderColor="gray.300" 
-              borderRadius="md"
-              p={4}
-              height="500px"
-              overflowY="auto"
-            >
-              <Text whiteSpace="pre-line">
-                Paulus apostolus non ab hominibus. Neque per hominem sed per in(esu)m xp(istu)m. Fratribus qui sunt laodiciae.
+              <Flex mt={4} mb={4}>
+                <Text fontSize="lg" fontWeight="normal" w="180px">Format Description:</Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1}><u>{manuscript.format_description}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8}>Date: <u>{manuscript.date}</u></Text>
+              </Flex>
 
-                Gratia vobis es pax a d(e)o patre et d(omi)no ih(es)u xp(ist)o.
-                Gratias ago xp(ist)o per omnem orationem me(am). Quod permanentes estis in eo et perseuerantes in operibus eius promissum expectantes in diem iudici.
-                
-                {/* Add more text content as needed */}
-              </Text>
+              <Box 
+                border="1px solid" 
+                borderColor="gray.300" 
+                borderRadius="md"
+                p={4}
+                height="500px"
+                overflowY="auto"
+                bg="white"
+              >
+                <Text whiteSpace="pre-line" fontWeight="normal">
+                  Paulus apostolus non ab hominibus. Neque per hominem sed per in(esu)m xp(istu)m. Fratribus qui sunt laodiciae.
+
+                  Gratia vobis es pax a d(e)o patre et d(omi)no ih(es)u xp(ist)o.
+                  Gratias ago xp(ist)o per omnem orationem me(am). Quod permanentes estis in eo et perseuerantes in operibus eius promissum expectantes in diem iudici.
+                </Text>
+              </Box>
             </Box>
-          </Box>
 
-          {/* Manuscript Image */}
-          <Box flex={1}>
-            <Image 
-              src="/manuscript-image.jpg" 
-              alt="Manuscript page"
-              maxH="800px"
-              objectFit="contain"
-            />
-          </Box>
-        </Flex>
+            <Box flex={1} display="flex" justifyContent="flex-start">
+              <Image 
+                src="/images/manuscript-image.png" 
+                alt="Manuscript page"
+                maxH="900px"
+                objectFit="contain"
+                border="1px solid"
+                borderColor="gray.300"
+              />
+            </Box>
+          </Flex>
+        </Box>
       </Box>
     </Box>
   );
