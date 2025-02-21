@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Flex, Heading, Text, Image, IconButton, VStack } from '@chakra-ui/react';
-import { SettingsIcon } from '@chakra-ui/icons';
 import NavigationBar from './NavigationBar.tsx';
 
 interface ManuscriptMetadata {
