@@ -1,16 +1,14 @@
-# Chakra UI cache
-.chakra/
-.cache/
-*.cache
-.emotion/ 
-.eslintcache
-
 # Node.js
 node_modules/
 **/node_modules/
 frontend/node_modules/
-**/node_modules/.cache/
+
+# Cache files
+.cache/
 **/.cache/
+.chakra/
+.emotion/
+.eslintcache
 **/*.pack
 **/*.old
 **/*.pack.old
