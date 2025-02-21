@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Flex, Heading, Text, Image, VStack } from '@chakra-ui/react';
 import NavigationBar from './NavigationBar.tsx';
+import { useNavigate } from 'react-router-dom';
 
 interface ManuscriptMetadata {
   ms_id: string;
@@ -21,6 +22,7 @@ interface ManuscriptVerses {
 }
 
 function ManuscriptViewer() {
+  const navigate = useNavigate();
   const manuscript: ManuscriptMetadata = {
     ms_id: "Fulda, Hochschul- und Landesbibliothek, Bonifatianus 1",
     sigla: "01",
@@ -177,7 +179,25 @@ function ManuscriptViewer() {
                   {verses.map(verse => (
                     <React.Fragment key={verse.verse_number}>
                       <Text>
-                        {<sup>{verse.verse_number}</sup>}{verse.verse_text}
+                        <sup>
+                          <Text
+                            as="span" 
+                            cursor="pointer"
+                            color="blue.600"
+                            _hover={{ textDecoration: 'underline' }}
+                            onClick={() => {
+                              navigate(`/verse/${verse.verse_number}`, {
+                                state: { 
+                                  verseNumber: verse.verse_number,
+                                  verseText: verse.verse_text
+                                }
+                              });
+                            }}
+                          >
+                            {verse.verse_number}
+                          </Text>
+                        </sup>
+                        {verse.verse_text}
                       </Text>
                       <br/>
                     </React.Fragment>
