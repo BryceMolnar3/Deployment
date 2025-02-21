@@ -119,7 +119,7 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
       materials: "Vellum",
       format_description: "Three Columns",
       date: "325-350",
-      image_src: "/images/manuscript-image2.png",
+      image_src: "/images/manuscript-image3.png",
       verses: [
         {
           verse_number: 1,
