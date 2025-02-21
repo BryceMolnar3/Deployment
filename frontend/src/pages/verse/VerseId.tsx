@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Flex, Heading, Text } from '@chakra-ui/react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import NavigationBar from '../../components/NavigationBar.tsx';
 
 interface LocationState {
@@ -136,6 +136,7 @@ const manuscripts: ManuscriptCollection = {
 
 function VerseId() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { verseNumber, verseText } = location.state as LocationState;
 
   return (
@@ -151,7 +152,20 @@ function VerseId() {
           return (
             <Box key={manuscriptId} mb={6}>
               <Flex ml={6}>
-                <Heading size="md" mb={2}>{manuscriptId}</Heading>
+                <Heading 
+                  size="md" 
+                  mb={2} 
+                  cursor="pointer"
+                  color="blue.600"
+                  _hover={{ textDecoration: 'underline' }}
+                  onClick={() => {
+                    navigate(`/manuscript-viewer/${manuscriptId}`, {
+                      state: { manuscriptId }
+                    });
+                  }}
+                >
+                  {manuscriptId}
+                </Heading>
                 <Text fontSize="lg" ml={4}>{verse?.verse_text}</Text>
               </Flex>
             </Box>
