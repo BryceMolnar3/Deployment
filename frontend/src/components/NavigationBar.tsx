@@ -1,8 +1,27 @@
 import React from 'react';
-import { Flex, Text, Image, IconButton } from '@chakra-ui/react';
+import { Flex, Text, Image, IconButton, Button } from '@chakra-ui/react';
 import { SettingsIcon } from '@chakra-ui/icons';
+import { useNavigate } from 'react-router-dom';
 
 function NavigationBar() {
+  const navigate = useNavigate();
+
+  function handleSearchClick() {
+    navigate('/search-database');
+  }
+
+  function handleNewEntryClick() {
+    navigate('/new-data-entry');
+  }
+
+  function handleDifferentiationClick() {
+    navigate('/manual-differentiation');
+  }
+
+  function handlePhylogeneticClick() {
+    navigate('/phylogenetic-analysis');
+  }
+
   return (
     <Flex 
       bg="beige" 
@@ -18,13 +37,49 @@ function NavigationBar() {
           marginRight={4}
         />
         <Flex flex={1} justifyContent="center">
-          <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>Search <br />database</Text>
+          <Button
+            variant="ghost"
+            color="gray.600"
+            fontSize={20}
+            fontWeight={200}
+            whiteSpace="pre-wrap"
+            onClick={handleSearchClick}
+          >
+            Search{'\n'}database
+          </Button>
           <Text color="gray.600" mx={8} my={2} fontSize={25} fontWeight={100}>|</Text>
-          <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>New <br />data entry</Text>
+          <Button
+            variant="ghost"
+            color="gray.600"
+            fontSize={20}
+            fontWeight={200}
+            whiteSpace="pre-wrap"
+            onClick={handleNewEntryClick}
+          >
+            New{'\n'}data entry
+          </Button>
           <Text color="gray.600" mx={8} my={2} fontSize={25} fontWeight={100}>|</Text>
-          <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>Manual<br />differentiation</Text>
+          <Button
+            variant="ghost"
+            color="gray.600"
+            fontSize={20}
+            fontWeight={200}
+            whiteSpace="pre-wrap"
+            onClick={handleDifferentiationClick}
+          >
+            Manual{'\n'}differentiation
+          </Button>
           <Text color="gray.600" mx={8} my={2} fontSize={25} fontWeight={100}>|</Text>
-          <Text textAlign="center" color="gray.600" fontSize={20} fontWeight={200}>Phylogenetic<br />analysis</Text>
+          <Button
+            variant="ghost"
+            color="gray.600"
+            fontSize={20}
+            fontWeight={200}
+            whiteSpace="pre-wrap"
+            onClick={handlePhylogeneticClick}
+          >
+            Phylogenetic{'\n'}analysis
+          </Button>
         </Flex>
       </Flex>
       <IconButton
