@@ -16,7 +16,6 @@ interface ManuscriptMetadata {
 }
 
 function ManuscriptViewer() {
-  // Replace with actual manuscript data from the database
   const manuscript: ManuscriptMetadata = {
     ms_id: "Fulda, Hochschul- und Landesbibliothek, Bonifatianus 1",
     sigla: "01",
@@ -32,14 +31,19 @@ function ManuscriptViewer() {
 
   return (
     <Box>
-      {/* Navigation Bar */}
       <Flex 
         bg="beige" 
         p={4} 
         justifyContent="space-between" 
         alignItems="center"
       >
-        <Flex gap={4}>
+        <Flex gap={4} alignItems="center">
+          <Image 
+            src="/images/Hamilton_Logo.png"
+            alt="Hamilton College Logo"
+            height="40px"
+            marginRight={4}
+          />
           <Text>Search database</Text>
           <Text>New data entry</Text>
           <Text>Manual differentiation</Text>
@@ -52,60 +56,58 @@ function ManuscriptViewer() {
         />
       </Flex>
 
-      {/* Main Content */}
-      <Box p={6}>
-        <Box bg="navy" py={4} px={6} mb={6}>
-          <Heading color="white" size="lg">Manuscript View</Heading>
+      <Box>
+        <Box bg="navy" py={4} px={6}>
+          <Heading color="white" size="md">Manuscript View</Heading>
         </Box>
 
-        {/* Manuscript Details */}
-        <Flex gap={8}>
-          <Box flex={1}>
-            <Flex justify="space-between" mb={4}>
-              <Text>MS ID: {manuscript.ms_id}</Text>
-              <Text>Sigla: {manuscript.sigla}</Text>
-            </Flex>
-            
-            <Text mb={2}>Other Names: {manuscript.other_names}</Text>
-            <Text mb={2}>Total Folia: {manuscript.total_folia}</Text>
-            <Text mb={2}>Laod. Folia: {manuscript.laod_folia}</Text>
-            <Text mb={2}>Dimensions: {manuscript.dimensions}</Text>
-            <Text mb={2}>Place of Origin: {manuscript.place_of_origin}</Text>
-            <Text mb={2}>Materials: {manuscript.materials}</Text>
-            <Text mb={2}>Format Description: {manuscript.format_description}</Text>
-            <Text mb={2}>Date: {manuscript.date}</Text>
+        <Box p={6}>
+          <Flex gap={8}>
+            <Box flex={1}>
+              <Flex justify="space-between" mb={4}>
+                <Text>MS ID: <u>{manuscript.ms_id}</u></Text>
+                <Text>Sigla: <u>{manuscript.sigla}</u></Text>
+              </Flex>
+              
+              <Text mb={2}>Other Names: <u>{manuscript.other_names}</u></Text>
+              <Text mb={2}>Total Folia: <u>{manuscript.total_folia}</u></Text>
+              <Text mb={2}>Laod. Folia: <u>{manuscript.laod_folia}</u></Text>
+              <Text mb={2}>Dimensions: <u>{manuscript.dimensions}</u></Text>
+              <Text mb={2}>Place of Origin: <u>{manuscript.place_of_origin}</u></Text>
+              <Text mb={2}>Materials: <u>{manuscript.materials}</u></Text>
+              <Flex justify="space-between" mb={4}>
+                <Text mb={2}>Format Description: <u>{manuscript.format_description}</u></Text>
+                <Text mb={2}>Date: <u>{manuscript.date}</u></Text>
+              </Flex>
 
-            {/* Text Content Area */}
-            <Box 
-              mt={6} 
-              border="1px solid" 
-              borderColor="gray.300" 
-              borderRadius="md"
-              p={4}
-              height="500px"
-              overflowY="auto"
-            >
-              <Text whiteSpace="pre-line">
-                Paulus apostolus non ab hominibus. Neque per hominem sed per in(esu)m xp(istu)m. Fratribus qui sunt laodiciae.
+              <Box 
+                mt={6} 
+                border="1px solid" 
+                borderColor="gray.300" 
+                borderRadius="md"
+                p={4}
+                height="500px"
+                overflowY="auto"
+              >
+                <Text whiteSpace="pre-line">
+                  Paulus apostolus non ab hominibus. Neque per hominem sed per in(esu)m xp(istu)m. Fratribus qui sunt laodiciae.
 
-                Gratia vobis es pax a d(e)o patre et d(omi)no ih(es)u xp(ist)o.
-                Gratias ago xp(ist)o per omnem orationem me(am). Quod permanentes estis in eo et perseuerantes in operibus eius promissum expectantes in diem iudici.
-                
-                {/* Add more text content as needed */}
-              </Text>
+                  Gratia vobis es pax a d(e)o patre et d(omi)no ih(es)u xp(ist)o.
+                  Gratias ago xp(ist)o per omnem orationem me(am). Quod permanentes estis in eo et perseuerantes in operibus eius promissum expectantes in diem iudici.
+                </Text>
+              </Box>
             </Box>
-          </Box>
 
-          {/* Manuscript Image */}
-          <Box flex={1}>
-            <Image 
-              src="/manuscript-image.jpg" 
-              alt="Manuscript page"
-              maxH="800px"
-              objectFit="contain"
-            />
-          </Box>
-        </Flex>
+            <Box flex={1}>
+              <Image 
+                src="/images/manuscript-image.png" 
+                alt="Manuscript page"
+                maxH="800px"
+                objectFit="contain"
+              />
+            </Box>
+          </Flex>
+        </Box>
       </Box>
     </Box>
   );
