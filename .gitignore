@@ -1,0 +1,5 @@
+# Chakra UI cache
+.chakra/
+.cache/
+*.cache
+.emotion/ 
