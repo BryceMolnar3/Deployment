@@ -4,3 +4,33 @@
 *.cache
 .emotion/ 
 .eslintcache
+
+# Node.js
+node_modules/
+**/node_modules/
+frontend/node_modules/
+**/node_modules/.cache/
+**/.cache/
+**/*.pack
+**/*.old
+**/*.pack.old
+
+# Development
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+/dist
+/build
+.next/
+out/
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
