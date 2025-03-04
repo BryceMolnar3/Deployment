@@ -21,7 +21,7 @@ function ManuscriptViewer() {
     <Box>
       <NavigationBar />
       <Box>
-        <Box bg="navy" py={8} px={6}>
+        <Box bg="#08004F" py={8} px={6}>
           <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manuscript View</Heading>
         </Box>
 

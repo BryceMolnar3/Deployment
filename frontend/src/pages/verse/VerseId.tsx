@@ -17,7 +17,7 @@ function VerseId() {
   return (
     <Box>
       <NavigationBar />
-      <Box bg="navy" py={8} px={6}>
+      <Box bg="#08004F" py={8} px={6}>
           <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Verse View</Heading>
         </Box>
       <Box p={6} ml={8}>

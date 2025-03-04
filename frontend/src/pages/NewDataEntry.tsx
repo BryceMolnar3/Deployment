@@ -91,12 +91,17 @@ function NewDataEntry() {
     <Box>
       <NavigationBar />
       <Box>
-        <Box bg="navy" py={8} px={6} position="relative">
+        <Box bg="#08004F" py={8} px={6} position="relative">
           <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">New Data Entry</Heading>
           <Flex position="absolute" right={6} top="50%" transform="translateY(-50%)" gap={4}>
             <Button 
-              colorScheme="red" 
+              bg="#CB0606"
+              color="white"
+              _hover={{ bg: "#A80505" }}
               onClick={handleClear}
+              borderRadius="full"
+              size="md"
+              px={8}
             >
               Clear
             </Button>
@@ -105,12 +110,18 @@ function NewDataEntry() {
               color="white"
               _hover={{ bg: "#9A7B0A" }}
               onClick={handleSaveAsDraft}
+              borderRadius="full"
+              size="md"
+              px={8}
             >
               Save as draft
             </Button>
             <Button 
               colorScheme="green" 
               onClick={handleComplete}
+              borderRadius="full"
+              size="md"
+              px={8}
             >
               Complete
             </Button>
