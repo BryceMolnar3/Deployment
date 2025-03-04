@@ -20,7 +20,7 @@ import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate } from 'react-router-dom';
 import { manuscripts, Manuscript } from '../data/manuscripts.ts';
 
-type SortOption = 'date-asc' | 'origin-az' | 'country-az' | 'sigla-asc' | 'sigla-desc';
+type SortOption = 'date-asc' | 'origin-az' | 'country-az' | 'sigla-asc' | 'sigla-desc' | 'msid-az' | 'other-names-az';
 
 function normalizeCountry(country: string): string {
   // Remove leading/trailing spaces and convert to lowercase for comparison
@@ -91,10 +91,8 @@ function SearchDatabase() {
           const countryA = getCountryFromOrigin(a.place_of_origin);
           const countryB = getCountryFromOrigin(b.place_of_origin);
           
-          // First sort by country
           const countryCompare = countryA.localeCompare(countryB);
           
-          // If countries are the same, sort by the full origin string
           if (countryCompare === 0) {
             return a.place_of_origin.localeCompare(b.place_of_origin);
           }
@@ -110,6 +108,16 @@ function SearchDatabase() {
       case 'sigla-desc':
         return sortedManuscripts.sort((a, b) => 
           b.sigla.localeCompare(a.sigla)
+        );
+
+      case 'msid-az':
+        return sortedManuscripts.sort((a, b) => 
+          a.ms_id.localeCompare(b.ms_id)
+        );
+
+      case 'other-names-az':
+        return sortedManuscripts.sort((a, b) => 
+          a.other_names.localeCompare(b.other_names)
         );
       
       default:
@@ -202,11 +210,13 @@ function SearchDatabase() {
                 onChange={handleSort}
                 borderColor="gray.400"
               >
+                <option value="msid-az">MS ID (A-Z)</option>
+                <option value="sigla-asc">Sigla (Ascending)</option>
+                <option value="sigla-desc">Sigla (Descending)</option>
+                <option value="other-names-az">Other Names (A-Z)</option>
                 <option value="date-asc">Date (Oldest first)</option>
                 <option value="origin-az">City/Region (A-Z)</option>
                 <option value="country-az">Country (A-Z)</option>
-                <option value="sigla-asc">Sigla (Ascending)</option>
-                <option value="sigla-desc">Sigla (Descending)</option>
               </Select>
             </Box>
             <Button
