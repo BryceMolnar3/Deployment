@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Flex, Heading, Text, Image, VStack } from '@chakra-ui/react';
-import NavigationBar from './NavigationBar.tsx';
+import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { manuscripts } from '../data/manuscripts.ts';
 
@@ -21,7 +21,7 @@ function ManuscriptViewer() {
     <Box>
       <NavigationBar />
       <Box>
-        <Box bg="navy" py={8} px={6}>
+        <Box bg="#08004F" py={8} px={6}>
           <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manuscript View</Heading>
         </Box>
 
