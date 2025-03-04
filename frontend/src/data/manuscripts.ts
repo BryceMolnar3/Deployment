@@ -115,7 +115,7 @@ export const manuscripts: { [sigla: string]: Manuscript } = {
       total_folia: 759,
       laod_folia: "214r-215v",
       dimensions: "27×27 cm",
-      place_of_origin: "Rome",
+      place_of_origin: "Rome, Italy",
       materials: "Vellum",
       format_description: "Three Columns",
       date: "325-350",
