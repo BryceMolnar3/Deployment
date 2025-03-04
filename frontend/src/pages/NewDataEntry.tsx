@@ -72,6 +72,9 @@ function NewDataEntry() {
       transcription: ''
     });
     setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }
 
   function handleSaveAsDraft() {
