@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Flex, Heading, Text, Image, VStack } from '@chakra-ui/react';
-import NavigationBar from './NavigationBar.tsx';
+import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { manuscripts } from '../data/manuscripts.ts';
 

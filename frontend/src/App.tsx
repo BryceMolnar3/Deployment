@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import ManuscriptViewer from './components/ManuscriptViewer.tsx';
+import ManuscriptViewer from './pages/ManuscriptViewer.tsx';
 import VerseId from './pages/verse/VerseId.tsx';
 
 function App() {
