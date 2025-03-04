@@ -9,7 +9,8 @@ import {
   Button,
   VStack,
   HStack,
-  Image
+  Image,
+  useToast
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 
@@ -28,7 +29,9 @@ function NewDataEntry() {
     transcription: ''
   });
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
@@ -77,14 +80,91 @@ function NewDataEntry() {
     }
   }
 
-  function handleSaveAsDraft() {
-    // TODO: Implement save as draft functionality
-    console.log('Saving as draft:', formData);
+  async function handleSaveAsDraft() {
+    try {
+      setIsLoading(true);
+      // TODO: Replace with your API endpoint
+      const response = await fetch('/api/manuscripts/draft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          image: selectedImage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save draft');
+      }
+
+      toast({
+        title: 'Draft saved',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error saving draft',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  function handleComplete() {
-    // TODO: Implement complete submission functionality
-    console.log('Completing submission:', formData);
+  async function handleComplete() {
+    try {
+      setIsLoading(true);
+      // Validate required fields
+      const requiredFields = ['ms_id', 'sigla', 'date'];
+      const missingFields = requiredFields.filter(field => !formData[field]);
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Required fields missing: ${missingFields.join(', ')}`);
+      }
+
+      // TODO: Replace with your API endpoint
+      const response = await fetch('/api/manuscripts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          image: selectedImage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit manuscript');
+      }
+
+      toast({
+        title: 'Manuscript submitted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      // Clear form after successful submission
+      handleClear();
+    } catch (error) {
+      toast({
+        title: 'Error submitting manuscript',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -102,6 +182,7 @@ function NewDataEntry() {
               borderRadius="full"
               size="md"
               px={8}
+              isDisabled={isLoading}
             >
               Clear
             </Button>
@@ -113,6 +194,8 @@ function NewDataEntry() {
               borderRadius="full"
               size="md"
               px={8}
+              isLoading={isLoading}
+              loadingText="Saving..."
             >
               Save as draft
             </Button>
@@ -122,6 +205,8 @@ function NewDataEntry() {
               borderRadius="full"
               size="md"
               px={8}
+              isLoading={isLoading}
+              loadingText="Submitting..."
             >
               Complete
             </Button>
