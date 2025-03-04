@@ -20,21 +20,36 @@ import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate } from 'react-router-dom';
 import { manuscripts, Manuscript } from '../data/manuscripts.ts';
 
-type SortOption = 'date-asc' | 'origin-az' | 'country-az' | 'sigla-asc' | 'sigla-desc' | 'msid-az' | 'other-names-az';
+type SortOption = 'date-asc' | 'date-desc' | 'origin-az' | 'origin-za' | 'country-az' | 'country-za' | 
+                  'sigla-asc' | 'sigla-desc' | 'msid-az' | 'msid-za' | 'other-names-az' | 'other-names-za';
 
 function normalizeCountry(country: string): string {
   // Remove leading/trailing spaces and convert to lowercase for comparison
   const normalized = country.trim().toLowerCase();
   
-  // Handle special cases
-  if (normalized.includes('italy')) return 'Italy';
-  if (normalized.includes('egypt')) return 'Egypt';
-  if (normalized.includes('rome')) return 'Italy';
-  if (normalized.includes('capua')) return 'Italy';
-  if (normalized.includes('alexandria')) return 'Egypt';
-  if (normalized.includes('caesarea')) return 'Israel';
+  // Handle geographic indicators first
+  if (normalized.includes('northern') || normalized.includes('southern') ||
+      normalized.includes('eastern') || normalized.includes('western') ||
+      normalized.includes('central')) {
+    // Return the full normalized string since it likely contains important geographic context
+    return normalized.split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  // Split into words and check if any word is a likely country name
+  // Countries tend to be single words and longer than 3 letters
+  const words = normalized.split(/[\s,]+/);
+  const likelyCountry = words.find(word => 
+    word.length > 3 && 
+    !['the', 'and', 'near', 'region', 'province', 'city'].includes(word)
+  );
+
+  if (likelyCountry) {
+    return likelyCountry.charAt(0).toUpperCase() + likelyCountry.slice(1);
+  }
   
-  // If no special case matches, capitalize first letter of each word
+  // If no country detected, capitalize first letter of each word
   return country.trim()
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -81,9 +96,21 @@ function SearchDatabase() {
           return yearA - yearB;
         });
       
+      case 'date-desc':
+        return sortedManuscripts.sort((a, b) => {
+          const yearA = parseInt(a.date.match(/\d+/)?.[0] || '0');
+          const yearB = parseInt(b.date.match(/\d+/)?.[0] || '0');
+          return yearB - yearA;
+        });
+
       case 'origin-az':
         return sortedManuscripts.sort((a, b) => 
           a.place_of_origin.localeCompare(b.place_of_origin)
+        );
+
+      case 'origin-za':
+        return sortedManuscripts.sort((a, b) => 
+          b.place_of_origin.localeCompare(a.place_of_origin)
         );
 
       case 'country-az':
@@ -99,6 +126,40 @@ function SearchDatabase() {
           
           return countryCompare;
         });
+
+      case 'country-za':
+        return sortedManuscripts.sort((a, b) => {
+          const countryA = getCountryFromOrigin(a.place_of_origin);
+          const countryB = getCountryFromOrigin(b.place_of_origin);
+          
+          const countryCompare = countryB.localeCompare(countryA);
+          
+          if (countryCompare === 0) {
+            return b.place_of_origin.localeCompare(a.place_of_origin);
+          }
+          
+          return countryCompare;
+        });
+      
+      case 'msid-az':
+        return sortedManuscripts.sort((a, b) => 
+          a.ms_id.localeCompare(b.ms_id)
+        );
+
+      case 'msid-za':
+        return sortedManuscripts.sort((a, b) => 
+          b.ms_id.localeCompare(a.ms_id)
+        );
+
+      case 'other-names-az':
+        return sortedManuscripts.sort((a, b) => 
+          a.other_names.localeCompare(b.other_names)
+        );
+
+      case 'other-names-za':
+        return sortedManuscripts.sort((a, b) => 
+          b.other_names.localeCompare(a.other_names)
+        );
       
       case 'sigla-asc':
         return sortedManuscripts.sort((a, b) => 
@@ -108,16 +169,6 @@ function SearchDatabase() {
       case 'sigla-desc':
         return sortedManuscripts.sort((a, b) => 
           b.sigla.localeCompare(a.sigla)
-        );
-
-      case 'msid-az':
-        return sortedManuscripts.sort((a, b) => 
-          a.ms_id.localeCompare(b.ms_id)
-        );
-
-      case 'other-names-az':
-        return sortedManuscripts.sort((a, b) => 
-          a.other_names.localeCompare(b.other_names)
         );
       
       default:
@@ -211,12 +262,17 @@ function SearchDatabase() {
                 borderColor="gray.400"
               >
                 <option value="msid-az">MS ID (A-Z)</option>
+                <option value="msid-za">MS ID (Z-A)</option>
                 <option value="sigla-asc">Sigla (Ascending)</option>
                 <option value="sigla-desc">Sigla (Descending)</option>
                 <option value="other-names-az">Other Names (A-Z)</option>
-                <option value="date-asc">Date (Oldest first)</option>
+                <option value="other-names-za">Other Names (Z-A)</option>
+                <option value="date-asc">Date (Oldest First)</option>
+                <option value="date-desc">Date (Newest First)</option>
                 <option value="origin-az">City/Region (A-Z)</option>
+                <option value="origin-za">City/Region (Z-A)</option>
                 <option value="country-az">Country (A-Z)</option>
+                <option value="country-za">Country (Z-A)</option>
               </Select>
             </Box>
             <Button
