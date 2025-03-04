@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Box, 
   Flex, 
@@ -8,7 +8,8 @@ import {
   Textarea, 
   Button,
   VStack,
-  HStack
+  HStack,
+  Image
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 
@@ -26,6 +27,8 @@ function NewDataEntry() {
     format_description: '',
     transcription: ''
   });
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
@@ -37,7 +40,24 @@ function NewDataEntry() {
     });
   }
 
-  function handleDelete() {
+  function handleImageClick() {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        setSelectedImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function handleClear() {
     setFormData({
       ms_id: '',
       sigla: '',
@@ -51,6 +71,7 @@ function NewDataEntry() {
       format_description: '',
       transcription: ''
     });
+    setSelectedImage(null);
   }
 
   function handleSaveAsDraft() {
@@ -72,9 +93,9 @@ function NewDataEntry() {
           <Flex position="absolute" right={6} top="50%" transform="translateY(-50%)" gap={4}>
             <Button 
               colorScheme="red" 
-              onClick={handleDelete}
+              onClick={handleClear}
             >
-              Delete
+              Clear
             </Button>
             <Button 
               bg="#B8860B"
@@ -222,9 +243,16 @@ function NewDataEntry() {
             </Box>
 
             <Box flex={1}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
               <Box 
                 border="2px dashed" 
-                borderColor="gray.300" 
+                borderColor="gray.400" 
                 borderRadius="md"
                 height="300px"
                 display="flex"
@@ -233,8 +261,24 @@ function NewDataEntry() {
                 bg="gray.100"
                 cursor="pointer"
                 _hover={{ bg: "gray.200" }}
+                onClick={handleImageClick}
+                position="relative"
+                overflow="hidden"
               >
-                <Text color="gray.500" fontSize="lg">Upload image</Text>
+                {selectedImage ? (
+                  <Image
+                    src={selectedImage}
+                    alt="Selected manuscript"
+                    objectFit="contain"
+                    maxH="100%"
+                    maxW="100%"
+                  />
+                ) : (
+                  <VStack spacing={2}>
+                    <Text color="gray.500" fontSize="lg">Upload image</Text>
+                    <Text color="gray.400" fontSize="sm">Click to select a file</Text>
+                  </VStack>
+                )}
               </Box>
             </Box>
           </Flex>
