@@ -13,14 +13,31 @@ import {
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 
+// Type for a variation comparison
+type Variation = {
+  sigla: string;
+  word1: string; // from manuscript 01
+  word2: string; // from current manuscript
+};
+
 function ManualDifferentiation() {
-  const [currentVariation, setCurrentVariation] = useState(6);
-  const [totalVariations] = useState(30);
-  const [completedVariations, setCompletedVariations] = useState(5);
+  // Sample variations data - this would come from your backend
+  const [variations] = useState<Variation[]>([
+    { sigla: '02', word1: 'porttitor', word2: 'porttita' },
+    { sigla: '03', word1: 'sanctus', word2: 'santus' },
+    // Add more variations as needed
+  ]);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
   const [isSignificant, setIsSignificant] = useState(true);
   const [variationType, setVariationType] = useState('different spelling');
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
+
+  const currentVariation = variations[currentIndex];
+  const currentNumber = currentIndex + 1;
+  const totalVariations = variations.length;
 
   async function handleConfirm() {
     try {
@@ -28,8 +45,8 @@ function ManualDifferentiation() {
       // TODO: Replace with actual API call
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulated API call
 
-      setCompletedVariations(prev => prev + 1);
-      setCurrentVariation(prev => prev + 1);
+      setCompletedCount(prev => prev + 1);
+      setCurrentIndex(prev => prev + 1);
 
       toast({
         title: 'Variation recorded',
@@ -51,7 +68,7 @@ function ManualDifferentiation() {
   }
 
   function handleSkip() {
-    setCurrentVariation(prev => prev + 1);
+    setCurrentIndex(prev => prev + 1);
   }
 
   return (
@@ -66,10 +83,10 @@ function ManualDifferentiation() {
           <VStack spacing={8} align="stretch">
             <Box textAlign="center">
               <Text fontSize="2xl" mb={4}>
-                {completedVariations} out of {totalVariations} variations completed
+                {currentNumber} out of {totalVariations} variations completed
               </Text>
               <Progress 
-                value={(completedVariations / totalVariations) * 100} 
+                value={(currentNumber / totalVariations) * 100} 
                 size="sm" 
                 colorScheme="blue" 
                 borderRadius="full"
@@ -85,10 +102,6 @@ function ManualDifferentiation() {
               boxShadow="sm"
             >
               <VStack spacing={6} align="stretch">
-                <Text fontSize="2xl" textAlign="center" fontWeight="medium">
-                  {currentVariation}.
-                </Text>
-
                 <VStack spacing={4}>
                   <Box 
                     w="100%" 
@@ -97,8 +110,10 @@ function ManualDifferentiation() {
                     borderColor="gray.300" 
                     borderRadius="md"
                     textAlign="center"
+                    bg="gray.50"
                   >
-                    <Text fontSize="xl">porttitor</Text>
+                    <Text fontSize="xl">{currentVariation.word1}</Text>
+                    <Text fontSize="sm" color="gray.500" mt={1}>Manuscript 01</Text>
                   </Box>
                   
                   <Text fontSize="lg" color="gray.600">vs.</Text>
@@ -110,8 +125,10 @@ function ManualDifferentiation() {
                     borderColor="gray.300" 
                     borderRadius="md"
                     textAlign="center"
+                    bg="gray.50"
                   >
-                    <Text fontSize="xl">porttita</Text>
+                    <Text fontSize="xl">{currentVariation.word2}</Text>
+                    <Text fontSize="sm" color="gray.500" mt={1}>Manuscript {currentVariation.sigla}</Text>
                   </Box>
                 </VStack>
 
