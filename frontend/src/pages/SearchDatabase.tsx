@@ -18,7 +18,159 @@ import {
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate } from 'react-router-dom';
-import { manuscripts, Manuscript } from '../data/manuscripts.ts';
+// Temporarily keep local data for development
+import { manuscripts as localManuscripts, Manuscript } from '../data/manuscripts.ts';
+
+// API base URL - can be configured based on environment
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
+
+function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Manuscript[] {
+  const sortedManuscripts = [...manuscripts];
+  
+  switch (sortOption) {
+    case 'date-asc':
+      return sortedManuscripts.sort((a, b) => {
+        const yearA = parseInt(a.date.match(/\d+/)?.[0] || '0');
+        const yearB = parseInt(b.date.match(/\d+/)?.[0] || '0');
+        return yearA - yearB;
+      });
+    
+    case 'date-desc':
+      return sortedManuscripts.sort((a, b) => {
+        const yearA = parseInt(a.date.match(/\d+/)?.[0] || '0');
+        const yearB = parseInt(b.date.match(/\d+/)?.[0] || '0');
+        return yearB - yearA;
+      });
+
+    case 'origin-az':
+      return sortedManuscripts.sort((a, b) => 
+        a.place_of_origin.localeCompare(b.place_of_origin)
+      );
+
+    case 'origin-za':
+      return sortedManuscripts.sort((a, b) => 
+        b.place_of_origin.localeCompare(a.place_of_origin)
+      );
+
+    case 'country-az':
+      return sortedManuscripts.sort((a, b) => {
+        const countryA = getCountryFromOrigin(a.place_of_origin);
+        const countryB = getCountryFromOrigin(b.place_of_origin);
+        
+        const countryCompare = countryA.localeCompare(countryB);
+        
+        if (countryCompare === 0) {
+          return a.place_of_origin.localeCompare(b.place_of_origin);
+        }
+        
+        return countryCompare;
+      });
+
+    case 'country-za':
+      return sortedManuscripts.sort((a, b) => {
+        const countryA = getCountryFromOrigin(a.place_of_origin);
+        const countryB = getCountryFromOrigin(b.place_of_origin);
+        
+        const countryCompare = countryB.localeCompare(countryA);
+        
+        if (countryCompare === 0) {
+          return b.place_of_origin.localeCompare(a.place_of_origin);
+        }
+        
+        return countryCompare;
+      });
+    
+    case 'msid-az':
+      return sortedManuscripts.sort((a, b) => 
+        a.ms_id.localeCompare(b.ms_id)
+      );
+
+    case 'msid-za':
+      return sortedManuscripts.sort((a, b) => 
+        b.ms_id.localeCompare(a.ms_id)
+      );
+
+    case 'other-names-az':
+      return sortedManuscripts.sort((a, b) => 
+        a.other_names.localeCompare(b.other_names)
+      );
+
+    case 'other-names-za':
+      return sortedManuscripts.sort((a, b) => 
+        b.other_names.localeCompare(a.other_names)
+      );
+    
+    case 'sigla-asc':
+      return sortedManuscripts.sort((a, b) => 
+        a.sigla.localeCompare(b.sigla)
+      );
+    
+    case 'sigla-desc':
+      return sortedManuscripts.sort((a, b) => 
+        b.sigla.localeCompare(a.sigla)
+      );
+    
+    default:
+      return sortedManuscripts;
+  }
+}
+
+// API service for manuscript operations
+const manuscriptService = {
+  async getAllManuscripts(): Promise<Manuscript[]> {
+    try {
+      // When ready to switch to backend, uncomment this code:
+      // const response = await fetch(`${API_BASE_URL}/manuscripts`);
+      // if (!response.ok) throw new Error('Failed to fetch manuscripts');
+      // return await response.json();
+      
+      // For now, return local data
+      return Object.values(localManuscripts);
+    } catch (error) {
+      console.error('Error fetching manuscripts:', error);
+      throw error;
+    }
+  },
+
+  async searchManuscripts(query: string): Promise<Manuscript[]> {
+    try {
+      // When ready to switch to backend, uncomment this code:
+      // const response = await fetch(`${API_BASE_URL}/manuscripts/search?q=${encodeURIComponent(query)}`);
+      // if (!response.ok) throw new Error('Failed to search manuscripts');
+      // return await response.json();
+      
+      // For now, search local data
+      const searchQuery = query.toLowerCase();
+      return Object.values(localManuscripts).filter(manuscript => 
+        manuscript.ms_id.toLowerCase().includes(searchQuery) ||
+        manuscript.sigla.toLowerCase().includes(searchQuery) ||
+        manuscript.other_names.toLowerCase().includes(searchQuery) ||
+        manuscript.place_of_origin.toLowerCase().includes(searchQuery) ||
+        manuscript.date.toLowerCase().includes(searchQuery) ||
+        manuscript.materials.toLowerCase().includes(searchQuery) ||
+        manuscript.format_description.toLowerCase().includes(searchQuery)
+      );
+    } catch (error) {
+      console.error('Error searching manuscripts:', error);
+      throw error;
+    }
+  },
+
+  async getSortedManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Promise<Manuscript[]> {
+    try {
+      // When ready to switch to backend, uncomment this code:
+      // const response = await fetch(`${API_BASE_URL}/manuscripts/sort?option=${sortOption}`);
+      // if (!response.ok) throw new Error('Failed to sort manuscripts');
+      // return await response.json();
+      
+      // For now, sort locally
+      return sortManuscripts(manuscripts, sortOption);
+    } catch (error) {
+      console.error('Error sorting manuscripts:', error);
+      throw error;
+    }
+  }
+};
 
 type SortOption = 'date-asc' | 'date-desc' | 'origin-az' | 'origin-za' | 'country-az' | 'country-za' | 
                   'sigla-asc' | 'sigla-desc' | 'msid-az' | 'msid-za' | 'other-names-az' | 'other-names-za';
@@ -76,133 +228,92 @@ function SearchDatabase() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchResults, setSearchResults] = useState<Manuscript[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('sigla-asc');
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const toast = useToast();
 
   // Load all manuscripts when component mounts
-  useEffect(function() {
-    const allManuscripts = Object.values(manuscripts);
-    setSearchResults(sortManuscripts(allManuscripts, 'sigla-asc'));
-  }, []);
+  useEffect(() => {
+    async function loadInitialData() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const manuscripts = await manuscriptService.getAllManuscripts();
+        const sortedManuscripts = await manuscriptService.getSortedManuscripts(manuscripts, 'sigla-asc');
+        setSearchResults(sortedManuscripts);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load manuscripts';
+        setError(errorMessage);
+        toast({
+          title: 'Error loading manuscripts',
+          description: errorMessage,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
 
-  function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Manuscript[] {
-    const sortedManuscripts = [...manuscripts];
+    loadInitialData();
+  }, [toast]);
+
+  async function handleSort(e: React.ChangeEvent<HTMLSelectElement>) {
+    const sortOption = e.target.value as SortOption;
+    setSortBy(sortOption);
     
-    switch (sortOption) {
-      case 'date-asc':
-        return sortedManuscripts.sort((a, b) => {
-          const yearA = parseInt(a.date.match(/\d+/)?.[0] || '0');
-          const yearB = parseInt(b.date.match(/\d+/)?.[0] || '0');
-          return yearA - yearB;
-        });
-      
-      case 'date-desc':
-        return sortedManuscripts.sort((a, b) => {
-          const yearA = parseInt(a.date.match(/\d+/)?.[0] || '0');
-          const yearB = parseInt(b.date.match(/\d+/)?.[0] || '0');
-          return yearB - yearA;
-        });
-
-      case 'origin-az':
-        return sortedManuscripts.sort((a, b) => 
-          a.place_of_origin.localeCompare(b.place_of_origin)
-        );
-
-      case 'origin-za':
-        return sortedManuscripts.sort((a, b) => 
-          b.place_of_origin.localeCompare(a.place_of_origin)
-        );
-
-      case 'country-az':
-        return sortedManuscripts.sort((a, b) => {
-          const countryA = getCountryFromOrigin(a.place_of_origin);
-          const countryB = getCountryFromOrigin(b.place_of_origin);
-          
-          const countryCompare = countryA.localeCompare(countryB);
-          
-          if (countryCompare === 0) {
-            return a.place_of_origin.localeCompare(b.place_of_origin);
-          }
-          
-          return countryCompare;
-        });
-
-      case 'country-za':
-        return sortedManuscripts.sort((a, b) => {
-          const countryA = getCountryFromOrigin(a.place_of_origin);
-          const countryB = getCountryFromOrigin(b.place_of_origin);
-          
-          const countryCompare = countryB.localeCompare(countryA);
-          
-          if (countryCompare === 0) {
-            return b.place_of_origin.localeCompare(a.place_of_origin);
-          }
-          
-          return countryCompare;
-        });
-      
-      case 'msid-az':
-        return sortedManuscripts.sort((a, b) => 
-          a.ms_id.localeCompare(b.ms_id)
-        );
-
-      case 'msid-za':
-        return sortedManuscripts.sort((a, b) => 
-          b.ms_id.localeCompare(a.ms_id)
-        );
-
-      case 'other-names-az':
-        return sortedManuscripts.sort((a, b) => 
-          a.other_names.localeCompare(b.other_names)
-        );
-
-      case 'other-names-za':
-        return sortedManuscripts.sort((a, b) => 
-          b.other_names.localeCompare(a.other_names)
-        );
-      
-      case 'sigla-asc':
-        return sortedManuscripts.sort((a, b) => 
-          a.sigla.localeCompare(b.sigla)
-        );
-      
-      case 'sigla-desc':
-        return sortedManuscripts.sort((a, b) => 
-          b.sigla.localeCompare(a.sigla)
-        );
-      
-      default:
-        return sortedManuscripts;
+    try {
+      setIsLoading(true);
+      setError(null);
+      const sortedResults = await manuscriptService.getSortedManuscripts(searchResults, sortOption);
+      setSearchResults(sortedResults);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sort manuscripts';
+      setError(errorMessage);
+      toast({
+        title: 'Error sorting manuscripts',
+        description: errorMessage,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
     }
   }
 
-  function handleSort(e: React.ChangeEvent<HTMLSelectElement>) {
-    const sortOption = e.target.value as SortOption;
-    setSortBy(sortOption);
-    setSearchResults(sortManuscripts(searchResults, sortOption));
-  }
-
-  function handleSearch() {
-    setIsLoading(true);
-    try {
-      let results;
-      if (!searchQuery.trim()) {
-        results = Object.values(manuscripts);
-      } else {
-        const query = searchQuery.toLowerCase();
-        results = Object.values(manuscripts).filter(manuscript => 
-          manuscript.ms_id.toLowerCase().includes(query) ||
-          manuscript.sigla.toLowerCase().includes(query) ||
-          manuscript.other_names.toLowerCase().includes(query) ||
-          manuscript.place_of_origin.toLowerCase().includes(query) ||
-          manuscript.date.toLowerCase().includes(query) ||
-          manuscript.materials.toLowerCase().includes(query) ||
-          manuscript.format_description.toLowerCase().includes(query)
-        );
+  async function handleSearch() {
+    if (!searchQuery.trim() && searchResults.length === 0) {
+      // If empty query and no results, load all manuscripts
+      try {
+        setIsLoading(true);
+        setError(null);
+        const manuscripts = await manuscriptService.getAllManuscripts();
+        const sortedManuscripts = await manuscriptService.getSortedManuscripts(manuscripts, sortBy);
+        setSearchResults(sortedManuscripts);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load manuscripts';
+        setError(errorMessage);
+        toast({
+          title: 'Error loading manuscripts',
+          description: errorMessage,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoading(false);
       }
+      return;
+    }
 
-      // Apply current sort to search results
-      setSearchResults(sortManuscripts(results, sortBy));
+    try {
+      setIsLoading(true);
+      setError(null);
+      const results = await manuscriptService.searchManuscripts(searchQuery);
+      const sortedResults = await manuscriptService.getSortedManuscripts(results, sortBy);
+      setSearchResults(sortedResults);
 
       if (results.length === 0) {
         toast({
@@ -213,10 +324,11 @@ function SearchDatabase() {
         });
       }
     } catch (error) {
-      console.error('Search error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to search manuscripts';
+      setError(errorMessage);
       toast({
-        title: 'Error performing search',
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        title: 'Error searching manuscripts',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -239,6 +351,12 @@ function SearchDatabase() {
         </Box>
 
         <Box p={8}>
+          {error && (
+            <Box mb={4} p={4} bg="red.50" color="red.600" borderRadius="md">
+              {error}
+            </Box>
+          )}
+
           <Flex gap={4} mb={8} alignItems="flex-start">
             <Box flex={1}>
               <Input
