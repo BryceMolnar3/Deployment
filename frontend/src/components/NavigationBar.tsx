@@ -22,6 +22,10 @@ function NavigationBar() {
     navigate('/phylogenetic-analysis');
   }
 
+  function handleSettingsClick() {
+    navigate('/settings');
+  }
+
   return (
     <Flex 
       bg="beige" 
@@ -84,8 +88,12 @@ function NavigationBar() {
       </Flex>
       <IconButton
         aria-label="Settings"
-        as={SettingsIcon}
+        icon={<SettingsIcon fontSize="32px" />}
         variant="ghost"
+        onClick={handleSettingsClick}
+        size="lg"
+        p={6}
+        color="gray.600"
       />
     </Flex>
   );

@@ -13,9 +13,11 @@ import {
   Spinner,
   Alert,
   AlertIcon,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { manuscripts, Manuscript } from '../data/manuscripts.ts';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
 
 // Types for API responses and requests
 interface WordComparison {
@@ -140,7 +142,18 @@ const manuscriptService = {
   },
 };
 
+// Default variation types (same as in Settings.tsx)
+const defaultVariationTypes = [
+  "Different Spelling",
+  "Abbreviation",
+  "Word Choice",
+  "Word Order",
+  "Addition",
+  "Omission"
+];
+
 function ManualDifferentiation() {
+  const { settings } = useDisplaySettings();
   const [variations, setVariations] = useState<WordComparison[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
@@ -149,7 +162,32 @@ function ManualDifferentiation() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFetchingData, setIsFetchingData] = useState(true);
+  const [variationTypes, setVariationTypes] = useState<string[]>(defaultVariationTypes);
   const toast = useToast();
+
+  // Color mode values
+  const boxBg = settings.theme === 'dark' ? 'gray.800' : 'white';
+  const boxBorderColor = settings.theme === 'dark' ? 'gray.600' : 'gray.200';
+  const textColor = settings.theme === 'dark' ? 'gray.100' : 'gray.600';
+  const inputBg = settings.theme === 'dark' ? 'gray.700' : 'gray.50';
+  const inputBorderColor = settings.theme === 'dark' ? 'gray.500' : 'gray.300';
+
+  // Load variation types on mount
+  useEffect(() => {
+    const savedTypes = localStorage.getItem('variationTypes');
+    if (savedTypes) {
+      try {
+        const types = JSON.parse(savedTypes);
+        setVariationTypes(types);
+        // If current variationType is not in the new types, reset to first type
+        if (!types.includes(variationType)) {
+          setVariationType(types[0]);
+        }
+      } catch (error) {
+        console.error('Error loading variation types:', error);
+      }
+    }
+  }, [variationType]);
 
   // Fetch variations on component mount
   useEffect(() => {
@@ -231,7 +269,7 @@ function ManualDifferentiation() {
           </Box>
           <Box p={8} textAlign="center">
             <Spinner size="xl" />
-            <Text mt={4}>Loading comparisons...</Text>
+            <Text mt={4} color={textColor}>Loading comparisons...</Text>
           </Box>
         </Box>
       </Box>
@@ -284,7 +322,7 @@ function ManualDifferentiation() {
         <Box p={8} maxW="800px" mx="auto">
           <VStack spacing={8} align="stretch">
             <Box textAlign="center">
-              <Text fontSize="2xl" mb={4}>
+              <Text fontSize="2xl" mb={4} color={textColor}>
                 {currentNumber} out of {totalVariations} variations completed
               </Text>
               <Progress 
@@ -297,20 +335,20 @@ function ManualDifferentiation() {
 
             <Box 
               borderWidth={1} 
-              borderColor="gray.200" 
+              borderColor={boxBorderColor}
               borderRadius="lg" 
               p={8}
-              bg="white"
+              bg={boxBg}
               boxShadow="sm"
             >
               <VStack spacing={6} align="stretch">
                 <HStack spacing={4} justify="center">
-                  <Text fontSize="2xl" fontWeight="medium" color="gray.600">01</Text>
-                  <Text fontSize="2xl" fontWeight="medium">vs.</Text>
-                  <Text fontSize="2xl" fontWeight="medium" color="gray.600">{currentVariation.manuscriptSigla}</Text>
+                  <Text fontSize="2xl" fontWeight="medium" color={textColor}>01</Text>
+                  <Text fontSize="2xl" fontWeight="medium" color={textColor}>vs.</Text>
+                  <Text fontSize="2xl" fontWeight="medium" color={textColor}>{currentVariation.manuscriptSigla}</Text>
                 </HStack>
 
-                <Text textAlign="center" fontSize="md" color="gray.600">
+                <Text textAlign="center" fontSize="md" color={textColor}>
                   Verse {currentVariation.verseNumber}, Word {currentVariation.position}
                 </Text>
 
@@ -319,28 +357,28 @@ function ManualDifferentiation() {
                     w="100%" 
                     p={4} 
                     borderWidth={1} 
-                    borderColor="gray.300" 
+                    borderColor={inputBorderColor}
                     borderRadius="md"
                     textAlign="center"
-                    bg="gray.50"
+                    bg={inputBg}
                   >
-                    <Text fontSize="xl">{currentVariation.word1}</Text>
-                    <Text fontSize="sm" color="gray.500" mt={1}>Manuscript 01</Text>
+                    <Text fontSize="xl" color={textColor}>{currentVariation.word1}</Text>
+                    <Text fontSize="sm" color={textColor} mt={1}>Manuscript 01</Text>
                   </Box>
                   
-                  <Text fontSize="lg" color="gray.600">vs.</Text>
+                  <Text fontSize="lg" color={textColor}>vs.</Text>
                   
                   <Box 
                     w="100%" 
                     p={4} 
                     borderWidth={1} 
-                    borderColor="gray.300" 
+                    borderColor={inputBorderColor}
                     borderRadius="md"
                     textAlign="center"
-                    bg="gray.50"
+                    bg={inputBg}
                   >
-                    <Text fontSize="xl">{currentVariation.word2}</Text>
-                    <Text fontSize="sm" color="gray.500" mt={1}>Manuscript {currentVariation.manuscriptSigla}</Text>
+                    <Text fontSize="xl" color={textColor}>{currentVariation.word2}</Text>
+                    <Text fontSize="sm" color={textColor} mt={1}>Manuscript {currentVariation.manuscriptSigla}</Text>
                   </Box>
                 </VStack>
 
@@ -348,10 +386,10 @@ function ManualDifferentiation() {
                   <HStack spacing={0} mb={6}>
                     <Button
                       flex={1}
-                      bg={isSignificant ? "green.500" : "gray.200"}
-                      color={isSignificant ? "white" : "gray.600"}
+                      bg={isSignificant ? "green.500" : settings.theme === 'dark' ? "gray.700" : "gray.200"}
+                      color={isSignificant ? "white" : textColor}
                       onClick={() => setIsSignificant(true)}
-                      _hover={{ bg: isSignificant ? "green.600" : "gray.300" }}
+                      _hover={{ bg: isSignificant ? "green.600" : settings.theme === 'dark' ? "gray.600" : "gray.300" }}
                       borderRightRadius={0}
                       py={6}
                     >
@@ -359,10 +397,10 @@ function ManualDifferentiation() {
                     </Button>
                     <Button
                       flex={1}
-                      bg={!isSignificant ? "gray.500" : "gray.200"}
-                      color={!isSignificant ? "white" : "gray.600"}
+                      bg={!isSignificant ? "gray.500" : settings.theme === 'dark' ? "gray.700" : "gray.200"}
+                      color={!isSignificant ? "white" : textColor}
                       onClick={() => setIsSignificant(false)}
-                      _hover={{ bg: !isSignificant ? "gray.600" : "gray.300" }}
+                      _hover={{ bg: !isSignificant ? "gray.600" : settings.theme === 'dark' ? "gray.600" : "gray.300" }}
                       borderLeftRadius={0}
                       py={6}
                     >
@@ -371,19 +409,19 @@ function ManualDifferentiation() {
                   </HStack>
 
                   <Box mb={6}>
-                    <Text mb={2}>Variation type</Text>
+                    <Text mb={2} color={textColor}>Variation type</Text>
                     <Select
                       value={variationType}
                       onChange={(e) => setVariationType(e.target.value)}
                       size="lg"
-                      borderColor="gray.400"
+                      borderColor={inputBorderColor}
+                      bg={inputBg}
+                      color={textColor}
+                      _hover={{ borderColor: settings.theme === 'dark' ? "gray.400" : "gray.500" }}
                     >
-                      <option value="Different Spelling">Different Spelling</option>
-                      <option value="Abbreviation">Abbreviation</option>
-                      <option value="Word Choice">Word Choice</option>
-                      <option value="Word Order">Word Order</option>
-                      <option value="Addition">Addition</option>
-                      <option value="Omission">Omission</option>
+                      {variationTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
                     </Select>
                   </Box>
 

@@ -3,12 +3,20 @@ import { Box, Flex, Heading, Text, Image, VStack } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { manuscripts } from '../data/manuscripts.ts';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
 
 function ManuscriptViewer() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { id } = useParams();
-  const manuscriptId = id || location.state?.manuscriptId || null;
+  const { sigla } = useParams();
+  const manuscriptId = sigla || location.state?.manuscriptId || null;
+  const { settings } = useDisplaySettings();
+
+  // Theme-based colors
+  const boxBg = settings.theme === 'dark' ? 'gray.800' : 'white';
+  const textColor = settings.theme === 'dark' ? 'gray.100' : 'gray.900';
+  const borderColor = settings.theme === 'dark' ? 'gray.600' : 'gray.300';
+  const linkColor = settings.theme === 'dark' ? 'blue.300' : 'blue.600';
 
   if (!manuscriptId) {
     return <Box>No manuscript ID provided</Box>;
@@ -29,62 +37,62 @@ function ManuscriptViewer() {
           <Flex gap={12}>
             <Box flex={2} maxW="65%">
               <Flex mb={6}>
-                <Text fontSize="lg" fontWeight="normal" w="180px">MS ID:</Text>
-                <Text fontSize="lg" fontWeight="normal" flex={1}><u>{manuscripts[manuscriptId].ms_id}</u></Text>
-                <Text fontSize="lg" fontWeight="normal" ml={8}>Sigla: <u>{manuscripts[manuscriptId].sigla}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>MS ID:</Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1} color={textColor}><u>{manuscripts[manuscriptId].ms_id}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8} color={textColor}>Sigla: <u>{manuscripts[manuscriptId].sigla}</u></Text>
               </Flex>
               
               <VStack spacing={4} align="stretch">
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px">Other Names:</Text>
-                  <Text fontSize="lg" fontWeight="normal"><u>{manuscripts[manuscriptId].other_names}</u></Text>
+                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Other Names:</Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscripts[manuscriptId].other_names}</u></Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px">Total Folia:</Text>
-                  <Text fontSize="lg" fontWeight="normal"><u>{manuscripts[manuscriptId].total_folia}</u></Text>
+                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Total Folia:</Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscripts[manuscriptId].total_folia}</u></Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px">Laod. Folia:</Text>
-                  <Text fontSize="lg" fontWeight="normal"><u>{manuscripts[manuscriptId].laod_folia}</u></Text>
+                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Laod. Folia:</Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscripts[manuscriptId].laod_folia}</u></Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px">Dimensions:</Text>
-                  <Text fontSize="lg" fontWeight="normal"><u>{manuscripts[manuscriptId].dimensions}</u></Text>
+                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Dimensions:</Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscripts[manuscriptId].dimensions}</u></Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px">Place of Origin:</Text>
-                  <Text fontSize="lg" fontWeight="normal"><u>{manuscripts[manuscriptId].place_of_origin}</u></Text>
+                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Place of Origin:</Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscripts[manuscriptId].place_of_origin}</u></Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px">Materials:</Text>
-                  <Text fontSize="lg" fontWeight="normal"><u>{manuscripts[manuscriptId].materials}</u></Text>
+                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Materials:</Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscripts[manuscriptId].materials}</u></Text>
                 </Flex>
               </VStack>
 
               <Flex mt={4} mb={4}>
-                <Text fontSize="lg" fontWeight="normal" w="180px">Format Description:</Text>
-                <Text fontSize="lg" fontWeight="normal" flex={1}><u>{manuscripts[manuscriptId].format_description}</u></Text>
-                <Text fontSize="lg" fontWeight="normal" ml={8}>Date: <u>{manuscripts[manuscriptId].date}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Format Description:</Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1} color={textColor}><u>{manuscripts[manuscriptId].format_description}</u></Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8} color={textColor}>Date: <u>{manuscripts[manuscriptId].date}</u></Text>
               </Flex>
 
               <Box 
                 border="1px solid" 
-                borderColor="gray.300" 
+                borderColor={borderColor}
                 borderRadius="md"
                 p={4}
                 height="500px"
                 overflowY="auto"
-                bg="white"
+                bg={boxBg}
               >
-                <Text whiteSpace="pre-line" fontWeight="normal">
+                <Text whiteSpace="pre-line" fontWeight="normal" color={textColor}>
                   {manuscripts[manuscriptId].verses.map(verse => (
                     <React.Fragment key={verse.verse_number}>
-                      <Text>
+                      <Text color={textColor}>
                         <sup>
                           <Text
                             as="span" 
                             cursor="pointer"
-                            color="blue.600"
+                            color={linkColor}
                             _hover={{ textDecoration: 'underline' }}
                             onClick={function() {
                               navigate(`/verse/${verse.verse_number}`, {
