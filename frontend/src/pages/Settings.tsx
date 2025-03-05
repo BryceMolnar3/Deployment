@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Heading,
@@ -11,22 +11,55 @@ import {
   HStack,
   Icon,
   Flex,
+  Text,
+  Input,
+  IconButton,
 } from '@chakra-ui/react';
-import { ViewIcon, RepeatIcon } from '@chakra-ui/icons';
+import { ViewIcon, RepeatIcon, EditIcon, AddIcon } from '@chakra-ui/icons';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
+
+// Default variation types
+const defaultVariationTypes = [
+  "Different Spelling",
+  "Abbreviation",
+  "Word Choice",
+  "Word Order",
+  "Addition",
+  "Omission"
+];
 
 function Settings() {
   const { settings, updateSettings } = useDisplaySettings();
   const toast = useToast();
+  const [variationTypes, setVariationTypes] = useState<string[]>([]);
+  const [newType, setNewType] = useState('');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  useEffect(() => {
+    // Load variation types from localStorage or use defaults
+    const savedTypes = localStorage.getItem('variationTypes');
+    if (savedTypes) {
+      try {
+        setVariationTypes(JSON.parse(savedTypes));
+      } catch (error) {
+        console.error('Error loading variation types:', error);
+        setVariationTypes(defaultVariationTypes);
+      }
+    } else {
+      setVariationTypes(defaultVariationTypes);
+    }
+  }, []);
 
   const handleChange = (field: string, value: string | boolean) => {
     updateSettings({ [field]: value });
   };
 
   const handleSave = async () => {
-    // Save settings to localStorage for persistence
+    // Save all settings to localStorage
     localStorage.setItem('displaySettings', JSON.stringify(settings));
+    localStorage.setItem('variationTypes', JSON.stringify(variationTypes));
     
     toast({
       title: 'Settings saved successfully',
@@ -34,6 +67,28 @@ function Settings() {
       duration: 3000,
       isClosable: true,
     });
+  };
+
+  const handleAddType = () => {
+    if (newType.trim() && !variationTypes.includes(newType.trim())) {
+      setVariationTypes([...variationTypes, newType.trim()]);
+      setNewType('');
+    }
+  };
+
+  const handleEditType = (index: number) => {
+    setEditingIndex(index);
+    setEditValue(variationTypes[index]);
+  };
+
+  const handleSaveEdit = (index: number) => {
+    if (editValue.trim() && !variationTypes.includes(editValue.trim())) {
+      const newTypes = [...variationTypes];
+      newTypes[index] = editValue.trim();
+      setVariationTypes(newTypes);
+    }
+    setEditingIndex(null);
+    setEditValue('');
   };
 
   return (
@@ -89,6 +144,61 @@ function Settings() {
                     <option value="large">Large</option>
                   </Select>
                 </FormControl>
+              </VStack>
+            </Box>
+
+            {/* Variation Types */}
+            <Box>
+              <HStack mb={4}>
+                <Icon as={EditIcon} fontSize="24px" color="gray.600" />
+                <Heading size="md">Variation Types</Heading>
+              </HStack>
+              <VStack spacing={4} align="stretch" pl={8}>
+                {variationTypes.map((type, index) => (
+                  <Flex key={index} align="center" justify="space-between">
+                    {editingIndex === index ? (
+                      <Input
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => handleSaveEdit(index)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSaveEdit(index);
+                          }
+                        }}
+                        width="300px"
+                      />
+                    ) : (
+                      <Text>{type}</Text>
+                    )}
+                    <IconButton
+                      aria-label="Edit variation type"
+                      icon={<EditIcon />}
+                      size="sm"
+                      onClick={() => handleEditType(index)}
+                    />
+                  </Flex>
+                ))}
+                <Flex mt={4} gap={4}>
+                  <Input
+                    placeholder="Add new variation type"
+                    value={newType}
+                    onChange={(e) => setNewType(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddType();
+                      }
+                    }}
+                  />
+                  <Button
+                    leftIcon={<AddIcon />}
+                    onClick={handleAddType}
+                    colorScheme="blue"
+                    isDisabled={!newType.trim()}
+                  >
+                    Add Type
+                  </Button>
+                </Flex>
               </VStack>
             </Box>
           </VStack>

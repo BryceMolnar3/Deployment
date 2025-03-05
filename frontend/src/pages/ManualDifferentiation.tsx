@@ -142,6 +142,16 @@ const manuscriptService = {
   },
 };
 
+// Default variation types (same as in Settings.tsx)
+const defaultVariationTypes = [
+  "Different Spelling",
+  "Abbreviation",
+  "Word Choice",
+  "Word Order",
+  "Addition",
+  "Omission"
+];
+
 function ManualDifferentiation() {
   const { settings } = useDisplaySettings();
   const [variations, setVariations] = useState<WordComparison[]>([]);
@@ -152,6 +162,7 @@ function ManualDifferentiation() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFetchingData, setIsFetchingData] = useState(true);
+  const [variationTypes, setVariationTypes] = useState<string[]>(defaultVariationTypes);
   const toast = useToast();
 
   // Color mode values
@@ -160,6 +171,23 @@ function ManualDifferentiation() {
   const textColor = settings.theme === 'dark' ? 'gray.100' : 'gray.600';
   const inputBg = settings.theme === 'dark' ? 'gray.700' : 'gray.50';
   const inputBorderColor = settings.theme === 'dark' ? 'gray.500' : 'gray.300';
+
+  // Load variation types on mount
+  useEffect(() => {
+    const savedTypes = localStorage.getItem('variationTypes');
+    if (savedTypes) {
+      try {
+        const types = JSON.parse(savedTypes);
+        setVariationTypes(types);
+        // If current variationType is not in the new types, reset to first type
+        if (!types.includes(variationType)) {
+          setVariationType(types[0]);
+        }
+      } catch (error) {
+        console.error('Error loading variation types:', error);
+      }
+    }
+  }, [variationType]);
 
   // Fetch variations on component mount
   useEffect(() => {
@@ -391,12 +419,9 @@ function ManualDifferentiation() {
                       color={textColor}
                       _hover={{ borderColor: settings.theme === 'dark' ? "gray.400" : "gray.500" }}
                     >
-                      <option value="Different Spelling">Different Spelling</option>
-                      <option value="Abbreviation">Abbreviation</option>
-                      <option value="Word Choice">Word Choice</option>
-                      <option value="Word Order">Word Order</option>
-                      <option value="Addition">Addition</option>
-                      <option value="Omission">Omission</option>
+                      {variationTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
                     </Select>
                   </Box>
 
