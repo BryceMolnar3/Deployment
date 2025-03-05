@@ -9,64 +9,65 @@ import {
   Progress,
   VStack,
   HStack,
-  useToast
+  useToast,
+  Spinner,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { manuscripts, Manuscript } from '../data/manuscripts.ts';
 
-// Type for a word comparison
-type WordComparison = {
+// Types for API responses and requests
+interface WordComparison {
   verseNumber: number;
-  word1: string; // from manuscript 01
-  word2: string; // from comparison manuscript
-  position: number; // position in the verse
+  word1: string;
+  word2: string;
+  position: number;
   manuscriptSigla: string;
-};
-
-function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscript: Manuscript): WordComparison[] {
-  const comparisons: WordComparison[] = [];
-  
-  // Compare each verse
-  baseManuscript.verses.forEach((baseVerse) => {
-    const comparisonVerse = comparisonManuscript.verses.find(
-      v => v.verse_number === baseVerse.verse_number
-    );
-
-    if (!comparisonVerse) return;
-
-    // Split verses into words and clean them
-    const baseWords = baseVerse.verse_text
-      .toLowerCase()
-      .replace(/[.,()]/g, '')
-      .split(' ')
-      .filter(word => word.length > 0);
-      
-    const comparisonWords = comparisonVerse.verse_text
-      .toLowerCase()
-      .replace(/[.,()]/g, '')
-      .split(' ')
-      .filter(word => word.length > 0);
-
-    // Compare words
-    const maxLength = Math.max(baseWords.length, comparisonWords.length);
-    for (let i = 0; i < maxLength; i++) {
-      const word1 = baseWords[i] || '[missing]';
-      const word2 = comparisonWords[i] || '[missing]';
-      
-      if (word1 !== word2) {
-        comparisons.push({
-          verseNumber: baseVerse.verse_number,
-          word1,
-          word2,
-          position: i + 1,
-          manuscriptSigla: comparisonManuscript.sigla
-        });
-      }
-    }
-  });
-
-  return comparisons;
 }
+
+interface ComparisonResult {
+  comparisonId: string;
+  isSignificant: boolean;
+  variationType: string;
+  wordComparison: WordComparison;
+  timestamp: string;
+}
+
+// API service for manuscript operations
+const manuscriptService = {
+  async fetchComparisons(): Promise<WordComparison[]> {
+    try {
+      // TODO: Replace with actual API endpoint
+      const response = await fetch('/api/comparisons');
+      if (!response.ok) throw new Error('Failed to fetch comparisons');
+      return await response.json();
+    } catch (error) {
+      throw new Error('Error fetching comparisons: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  },
+
+  async saveComparison(data: {
+    wordComparison: WordComparison;
+    isSignificant: boolean;
+    variationType: string;
+  }): Promise<ComparisonResult> {
+    try {
+      // TODO: Replace with actual API endpoint
+      const response = await fetch('/api/comparisons', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to save comparison');
+      return await response.json();
+    } catch (error) {
+      throw new Error('Error saving comparison: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  },
+};
 
 function ManualDifferentiation() {
   const [variations, setVariations] = useState<WordComparison[]>([]);
@@ -75,44 +76,64 @@ function ManualDifferentiation() {
   const [isSignificant, setIsSignificant] = useState(true);
   const [variationType, setVariationType] = useState('Different Spelling');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isFetchingData, setIsFetchingData] = useState(true);
   const toast = useToast();
 
-  // Initialize variations on component mount
+  // Fetch variations on component mount
   useEffect(() => {
-    const baseManuscript = manuscripts['01'];
-    const allComparisons: WordComparison[] = [];
-    
-    // Generate comparisons for each manuscript except 01
-    Object.values(manuscripts).forEach(manuscript => {
-      if (manuscript.sigla !== '01') {
-        const comparisons = generateWordComparisons(baseManuscript, manuscript);
-        allComparisons.push(...comparisons);
+    async function fetchData() {
+      try {
+        setIsFetchingData(true);
+        setError(null);
+        const data = await manuscriptService.fetchComparisons();
+        setVariations(data);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to fetch comparisons');
+        toast({
+          title: 'Error fetching comparisons',
+          description: error instanceof Error ? error.message : 'Unknown error occurred',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      } finally {
+        setIsFetchingData(false);
       }
-    });
+    }
 
-    setVariations(allComparisons);
-  }, []);
+    fetchData();
+  }, [toast]);
 
   const currentVariation = variations[currentIndex];
   const currentNumber = currentIndex + 1;
   const totalVariations = variations.length;
 
   async function handleConfirm() {
+    if (!currentVariation) return;
+
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call to save the comparison result
-      await new Promise(resolve => setTimeout(resolve, 500));
+      setError(null);
+
+      const result = await manuscriptService.saveComparison({
+        wordComparison: currentVariation,
+        isSignificant,
+        variationType,
+      });
 
       setCompletedCount(prev => prev + 1);
       setCurrentIndex(prev => prev + 1);
 
       toast({
         title: 'Variation recorded',
+        description: `Comparison saved with ID: ${result.comparisonId}`,
         status: 'success',
         duration: 2000,
         isClosable: true,
       });
     } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to save comparison');
       toast({
         title: 'Error recording variation',
         description: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -127,6 +148,42 @@ function ManualDifferentiation() {
 
   function handleSkip() {
     setCurrentIndex(prev => prev + 1);
+  }
+
+  if (isFetchingData) {
+    return (
+      <Box>
+        <NavigationBar />
+        <Box>
+          <Box bg="#08004F" py={8} px={6} position="relative">
+            <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manual Differentiation</Heading>
+          </Box>
+          <Box p={8} textAlign="center">
+            <Spinner size="xl" />
+            <Text mt={4}>Loading comparisons...</Text>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box>
+        <NavigationBar />
+        <Box>
+          <Box bg="#08004F" py={8} px={6} position="relative">
+            <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manual Differentiation</Heading>
+          </Box>
+          <Box p={8}>
+            <Alert status="error">
+              <AlertIcon />
+              {error}
+            </Alert>
+          </Box>
+        </Box>
+      </Box>
+    );
   }
 
   if (!currentVariation) {
