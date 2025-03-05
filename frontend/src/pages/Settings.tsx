@@ -14,8 +14,10 @@ import {
   Text,
   Input,
   IconButton,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
-import { ViewIcon, RepeatIcon, EditIcon, AddIcon } from '@chakra-ui/icons';
+import { ViewIcon, RepeatIcon, EditIcon, AddIcon, DeleteIcon } from '@chakra-ui/icons';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
 
@@ -73,6 +75,13 @@ function Settings() {
     if (newType.trim() && !variationTypes.includes(newType.trim())) {
       setVariationTypes([...variationTypes, newType.trim()]);
       setNewType('');
+      toast({
+        title: 'Variation type added',
+        description: 'Remember to save your changes',
+        status: 'info',
+        duration: 2000,
+        isClosable: true,
+      });
     }
   };
 
@@ -86,9 +95,39 @@ function Settings() {
       const newTypes = [...variationTypes];
       newTypes[index] = editValue.trim();
       setVariationTypes(newTypes);
+      toast({
+        title: 'Variation type updated',
+        description: 'Remember to save your changes',
+        status: 'info',
+        duration: 2000,
+        isClosable: true,
+      });
     }
     setEditingIndex(null);
     setEditValue('');
+  };
+
+  const handleDeleteType = (index: number) => {
+    if (variationTypes.length <= 1) {
+      toast({
+        title: 'Cannot delete',
+        description: 'At least one variation type must remain',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    const newTypes = variationTypes.filter((_, i) => i !== index);
+    setVariationTypes(newTypes);
+    toast({
+      title: 'Variation type deleted',
+      description: 'Remember to save your changes',
+      status: 'info',
+      duration: 2000,
+      isClosable: true,
+    });
   };
 
   return (
@@ -112,6 +151,13 @@ function Settings() {
         </Box>
 
         <Box p={8} maxW="1200px" mx="auto">
+          <Alert status="info" mb={6} borderRadius="md">
+            <AlertIcon />
+            <Text>
+              <strong>Important:</strong> Remember to click "Save Changes" before refreshing or navigating away. Unsaved changes will be lost.
+            </Text>
+          </Alert>
+
           <VStack spacing={8} align="stretch">
             {/* Display Settings */}
             <Box>
@@ -171,12 +217,21 @@ function Settings() {
                     ) : (
                       <Text>{type}</Text>
                     )}
-                    <IconButton
-                      aria-label="Edit variation type"
-                      icon={<EditIcon />}
-                      size="sm"
-                      onClick={() => handleEditType(index)}
-                    />
+                    <HStack spacing={2}>
+                      <IconButton
+                        aria-label="Edit variation type"
+                        icon={<EditIcon />}
+                        size="sm"
+                        onClick={() => handleEditType(index)}
+                      />
+                      <IconButton
+                        aria-label="Delete variation type"
+                        icon={<DeleteIcon />}
+                        size="sm"
+                        colorScheme="red"
+                        onClick={() => handleDeleteType(index)}
+                      />
+                    </HStack>
                   </Flex>
                 ))}
                 <Flex mt={4} gap={4}>
