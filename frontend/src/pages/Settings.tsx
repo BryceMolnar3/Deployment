@@ -39,7 +39,7 @@ function Settings() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  useEffect(() => {
+  useEffect(function() {
     // Load variation types from localStorage or use defaults
     const savedTypes = localStorage.getItem('variationTypes');
     if (savedTypes) {
@@ -54,11 +54,11 @@ function Settings() {
     }
   }, []);
 
-  const handleChange = (field: string, value: string | boolean) => {
+  function handleChange(field: string, value: string | boolean) {
     updateSettings({ [field]: value });
-  };
+  }
 
-  const handleSave = async () => {
+  async function handleSave() {
     // Save all settings to localStorage
     localStorage.setItem('displaySettings', JSON.stringify(settings));
     localStorage.setItem('variationTypes', JSON.stringify(variationTypes));
@@ -69,9 +69,9 @@ function Settings() {
       duration: 3000,
       isClosable: true,
     });
-  };
+  }
 
-  const handleAddType = () => {
+  function handleAddType() {
     if (newType.trim() && !variationTypes.includes(newType.trim())) {
       setVariationTypes([...variationTypes, newType.trim()]);
       setNewType('');
@@ -83,14 +83,14 @@ function Settings() {
         isClosable: true,
       });
     }
-  };
+  }
 
-  const handleEditType = (index: number) => {
+  function handleEditType(index: number) {
     setEditingIndex(index);
     setEditValue(variationTypes[index]);
-  };
+  }
 
-  const handleSaveEdit = (index: number) => {
+  function handleSaveEdit(index: number) {
     if (editValue.trim() && !variationTypes.includes(editValue.trim())) {
       const newTypes = [...variationTypes];
       newTypes[index] = editValue.trim();
@@ -105,9 +105,9 @@ function Settings() {
     }
     setEditingIndex(null);
     setEditValue('');
-  };
+  }
 
-  const handleDeleteType = (index: number) => {
+  function handleDeleteType(index: number) {
     if (variationTypes.length <= 1) {
       toast({
         title: 'Cannot delete',
@@ -119,7 +119,7 @@ function Settings() {
       return;
     }
 
-    const newTypes = variationTypes.filter((_, i) => i !== index);
+    const newTypes = variationTypes.filter(function(_, i) { return i !== index; });
     setVariationTypes(newTypes);
     toast({
       title: 'Variation type deleted',
@@ -128,7 +128,31 @@ function Settings() {
       duration: 2000,
       isClosable: true,
     });
-  };
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setNewType(e.target.value);
+  }
+
+  function handleEditInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setEditValue(e.target.value);
+  }
+
+  function handleKeyPress(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      handleAddType();
+    }
+  }
+
+  function handleEditKeyPress(e: React.KeyboardEvent, index: number) {
+    if (e.key === 'Enter') {
+      handleSaveEdit(index);
+    }
+  }
+
+  function handleSelectChange(e: React.ChangeEvent<HTMLSelectElement>, field: string) {
+    handleChange(field, e.target.value);
+  }
 
   return (
     <Box>
@@ -170,7 +194,7 @@ function Settings() {
                   <FormLabel mb={0}>Theme</FormLabel>
                   <Select
                     value={settings.theme}
-                    onChange={(e) => handleChange('theme', e.target.value)}
+                    onChange={function(e) { handleSelectChange(e, 'theme'); }}
                     width="200px"
                   >
                     <option value="light">Light</option>
@@ -182,7 +206,7 @@ function Settings() {
                   <FormLabel mb={0}>Font Size</FormLabel>
                   <Select
                     value={settings.fontSize}
-                    onChange={(e) => handleChange('fontSize', e.target.value)}
+                    onChange={function(e) { handleSelectChange(e, 'fontSize'); }}
                     width="200px"
                   >
                     <option value="small">Small</option>
@@ -200,50 +224,44 @@ function Settings() {
                 <Heading size="md">Variation Types</Heading>
               </HStack>
               <VStack spacing={4} align="stretch" pl={8}>
-                {variationTypes.map((type, index) => (
-                  <Flex key={index} align="center" justify="space-between">
-                    {editingIndex === index ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => handleSaveEdit(index)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            handleSaveEdit(index);
-                          }
-                        }}
-                        width="300px"
-                      />
-                    ) : (
-                      <Text>{type}</Text>
-                    )}
-                    <HStack spacing={2}>
-                      <IconButton
-                        aria-label="Edit variation type"
-                        icon={<EditIcon />}
-                        size="sm"
-                        onClick={() => handleEditType(index)}
-                      />
-                      <IconButton
-                        aria-label="Delete variation type"
-                        icon={<DeleteIcon />}
-                        size="sm"
-                        colorScheme="red"
-                        onClick={() => handleDeleteType(index)}
-                      />
-                    </HStack>
-                  </Flex>
-                ))}
+                {variationTypes.map(function(type, index) {
+                  return (
+                    <Flex key={index} align="center" justify="space-between">
+                      {editingIndex === index ? (
+                        <Input
+                          value={editValue}
+                          onChange={handleEditInputChange}
+                          onBlur={function() { handleSaveEdit(index); }}
+                          onKeyPress={function(e) { handleEditKeyPress(e, index); }}
+                          width="300px"
+                        />
+                      ) : (
+                        <Text>{type}</Text>
+                      )}
+                      <HStack spacing={2}>
+                        <IconButton
+                          aria-label="Edit variation type"
+                          icon={<EditIcon />}
+                          size="sm"
+                          onClick={function() { handleEditType(index); }}
+                        />
+                        <IconButton
+                          aria-label="Delete variation type"
+                          icon={<DeleteIcon />}
+                          size="sm"
+                          colorScheme="red"
+                          onClick={function() { handleDeleteType(index); }}
+                        />
+                      </HStack>
+                    </Flex>
+                  );
+                })}
                 <Flex mt={4} gap={4}>
                   <Input
                     placeholder="Add new variation type"
                     value={newType}
-                    onChange={(e) => setNewType(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleAddType();
-                      }
-                    }}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
                   />
                   <Button
                     leftIcon={<AddIcon />}
