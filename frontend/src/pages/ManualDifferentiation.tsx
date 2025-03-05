@@ -34,14 +34,75 @@ interface ComparisonResult {
   timestamp: string;
 }
 
+// Function to generate local comparisons for development
+function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscript: Manuscript): WordComparison[] {
+  const comparisons: WordComparison[] = [];
+  
+  // Compare each verse
+  baseManuscript.verses.forEach((baseVerse) => {
+    const comparisonVerse = comparisonManuscript.verses.find(
+      v => v.verse_number === baseVerse.verse_number
+    );
+
+    if (!comparisonVerse) return;
+
+    // Split verses into words and clean them
+    const baseWords = baseVerse.verse_text
+      .toLowerCase()
+      .replace(/[.,()]/g, '')
+      .split(' ')
+      .filter(word => word.length > 0);
+      
+    const comparisonWords = comparisonVerse.verse_text
+      .toLowerCase()
+      .replace(/[.,()]/g, '')
+      .split(' ')
+      .filter(word => word.length > 0);
+
+    // Compare words
+    const maxLength = Math.max(baseWords.length, comparisonWords.length);
+    for (let i = 0; i < maxLength; i++) {
+      const word1 = baseWords[i] || '[missing]';
+      const word2 = comparisonWords[i] || '[missing]';
+      
+      if (word1 !== word2) {
+        comparisons.push({
+          verseNumber: baseVerse.verse_number,
+          word1,
+          word2,
+          position: i + 1,
+          manuscriptSigla: comparisonManuscript.sigla
+        });
+      }
+    }
+  });
+
+  return comparisons;
+}
+
 // API service for manuscript operations
 const manuscriptService = {
   async fetchComparisons(): Promise<WordComparison[]> {
     try {
-      // TODO: Replace with actual API endpoint
-      const response = await fetch('/api/comparisons');
-      if (!response.ok) throw new Error('Failed to fetch comparisons');
-      return await response.json();
+      // For development: Generate local comparisons
+      const baseManuscript = manuscripts['01'];
+      const allComparisons: WordComparison[] = [];
+      
+      Object.values(manuscripts).forEach(manuscript => {
+        if (manuscript.sigla !== '01') {
+          const comparisons = generateWordComparisons(baseManuscript, manuscript);
+          allComparisons.push(...comparisons);
+        }
+      });
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return allComparisons;
+
+      // TODO: For production, uncomment the following:
+      // const response = await fetch('/api/comparisons');
+      // if (!response.ok) throw new Error('Failed to fetch comparisons');
+      // return await response.json();
     } catch (error) {
       throw new Error('Error fetching comparisons: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
@@ -53,16 +114,26 @@ const manuscriptService = {
     variationType: string;
   }): Promise<ComparisonResult> {
     try {
-      // TODO: Replace with actual API endpoint
-      const response = await fetch('/api/comparisons', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Failed to save comparison');
-      return await response.json();
+      // For development: Mock saving comparison
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return {
+        comparisonId: Math.random().toString(36).substr(2, 9),
+        isSignificant: data.isSignificant,
+        variationType: data.variationType,
+        wordComparison: data.wordComparison,
+        timestamp: new Date().toISOString()
+      };
+
+      // TODO: For production, uncomment the following:
+      // const response = await fetch('/api/comparisons', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify(data),
+      // });
+      // if (!response.ok) throw new Error('Failed to save comparison');
+      // return await response.json();
     } catch (error) {
       throw new Error('Error saving comparison: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
