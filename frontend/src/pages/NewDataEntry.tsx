@@ -215,7 +215,7 @@ function NewDataEntry() {
 
         <Box ml={8} p={6}>
           <Flex gap={12}>
-            <Box flex={2} maxW="65%">
+            <Box flex={1}>
               <Flex mb={6} gap={6}>
                 <Box flex={2}>
                   <Text fontSize="lg" mb={2}>MS ID</Text>
@@ -314,34 +314,9 @@ function NewDataEntry() {
                   />
                 </Box>
               </Flex>
-
-              <Box mb={6}>
-                <Text fontSize="lg" mb={2}>Format Description</Text>
-                <Input 
-                  name="format_description"
-                  value={formData.format_description}
-                  onChange={handleChange}
-                  size="lg"
-                  borderColor="gray.400"
-                />
-              </Box>
-
-              <Box>
-                <Text fontSize="lg" mb={2}>Transcription</Text>
-                <Textarea
-                  name="transcription"
-                  value={formData.transcription}
-                  onChange={handleChange}
-                  placeholder="Text goes here...."
-                  size="lg"
-                  height="500px"
-                  resize="vertical"
-                  borderColor="gray.400"
-                />
-              </Box>
             </Box>
 
-            <Box flex={1}>
+            <Box flex={0.4} minW="300px">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -381,6 +356,33 @@ function NewDataEntry() {
               </Box>
             </Box>
           </Flex>
+
+          <Box mt={1}>
+            <Text fontSize="lg" mb={2}>Format Description</Text>
+            <Input 
+              name="format_description"
+              value={formData.format_description}
+              onChange={handleChange}
+              size="lg"
+              borderColor="gray.400"
+              width="100%"
+            />
+          </Box>
+
+          <Box mt={6}>
+            <Text fontSize="lg" mb={2}>Transcription</Text>
+            <Textarea
+              name="transcription"
+              value={formData.transcription}
+              onChange={handleChange}
+              placeholder="Text goes here...."
+              size="lg"
+              height="500px"
+              resize="vertical"
+              borderColor="gray.400"
+              width="100%"
+            />
+          </Box>
         </Box>
       </Box>
     </Box>
