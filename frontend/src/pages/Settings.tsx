@@ -3,7 +3,6 @@ import {
   Box,
   Heading,
   VStack,
-  Switch,
   Select,
   Button,
   FormControl,
@@ -89,22 +88,6 @@ function Settings() {
                     <option value="medium">Medium</option>
                     <option value="large">Large</option>
                   </Select>
-                </FormControl>
-
-                <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                  <FormLabel mb={0}>Show Line Numbers</FormLabel>
-                  <Switch
-                    isChecked={settings.showLineNumbers}
-                    onChange={(e) => handleChange('showLineNumbers', e.target.checked)}
-                  />
-                </FormControl>
-
-                <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                  <FormLabel mb={0}>Highlight Differences</FormLabel>
-                  <Switch
-                    isChecked={settings.highlightDifferences}
-                    onChange={(e) => handleChange('highlightDifferences', e.target.checked)}
-                  />
                 </FormControl>
               </VStack>
             </Box>

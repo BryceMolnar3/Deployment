@@ -3,8 +3,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 interface DisplaySettings {
   theme: 'light' | 'dark';
   fontSize: 'small' | 'medium' | 'large';
-  showLineNumbers: boolean;
-  highlightDifferences: boolean;
 }
 
 interface DisplaySettingsContextType {
@@ -18,8 +16,6 @@ export function DisplaySettingsProvider({ children }: { children: React.ReactNod
   const [settings, setSettings] = useState<DisplaySettings>({
     theme: 'light',
     fontSize: 'medium',
-    showLineNumbers: true,
-    highlightDifferences: true,
   });
 
   useEffect(() => {
