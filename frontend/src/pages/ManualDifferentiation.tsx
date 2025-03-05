@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
@@ -12,28 +12,86 @@ import {
   useToast
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
+import { manuscripts, Manuscript } from '../data/manuscripts.ts';
 
-// Type for a variation comparison
-type Variation = {
-  sigla: string;
+// Type for a word comparison
+type WordComparison = {
+  verseNumber: number;
   word1: string; // from manuscript 01
-  word2: string; // from current manuscript
+  word2: string; // from comparison manuscript
+  position: number; // position in the verse
+  manuscriptSigla: string;
 };
 
-function ManualDifferentiation() {
-  // Sample variations data - this would come from your backend
-  const [variations] = useState<Variation[]>([
-    { sigla: '02', word1: 'porttitor', word2: 'porttita' },
-    { sigla: '03', word1: 'sanctus', word2: 'santus' },
-    // Add more variations as needed
-  ]);
+function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscript: Manuscript): WordComparison[] {
+  const comparisons: WordComparison[] = [];
+  
+  // Compare each verse
+  baseManuscript.verses.forEach((baseVerse) => {
+    const comparisonVerse = comparisonManuscript.verses.find(
+      v => v.verse_number === baseVerse.verse_number
+    );
 
+    if (!comparisonVerse) return;
+
+    // Split verses into words and clean them
+    const baseWords = baseVerse.verse_text
+      .toLowerCase()
+      .replace(/[.,()]/g, '')
+      .split(' ')
+      .filter(word => word.length > 0);
+      
+    const comparisonWords = comparisonVerse.verse_text
+      .toLowerCase()
+      .replace(/[.,()]/g, '')
+      .split(' ')
+      .filter(word => word.length > 0);
+
+    // Compare words
+    const maxLength = Math.max(baseWords.length, comparisonWords.length);
+    for (let i = 0; i < maxLength; i++) {
+      const word1 = baseWords[i] || '[missing]';
+      const word2 = comparisonWords[i] || '[missing]';
+      
+      if (word1 !== word2) {
+        comparisons.push({
+          verseNumber: baseVerse.verse_number,
+          word1,
+          word2,
+          position: i + 1,
+          manuscriptSigla: comparisonManuscript.sigla
+        });
+      }
+    }
+  });
+
+  return comparisons;
+}
+
+function ManualDifferentiation() {
+  const [variations, setVariations] = useState<WordComparison[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [isSignificant, setIsSignificant] = useState(true);
   const [variationType, setVariationType] = useState('different spelling');
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
+
+  // Initialize variations on component mount
+  useEffect(() => {
+    const baseManuscript = manuscripts['01'];
+    const allComparisons: WordComparison[] = [];
+    
+    // Generate comparisons for each manuscript except 01
+    Object.values(manuscripts).forEach(manuscript => {
+      if (manuscript.sigla !== '01') {
+        const comparisons = generateWordComparisons(baseManuscript, manuscript);
+        allComparisons.push(...comparisons);
+      }
+    });
+
+    setVariations(allComparisons);
+  }, []);
 
   const currentVariation = variations[currentIndex];
   const currentNumber = currentIndex + 1;
@@ -42,8 +100,8 @@ function ManualDifferentiation() {
   async function handleConfirm() {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulated API call
+      // TODO: Replace with actual API call to save the comparison result
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       setCompletedCount(prev => prev + 1);
       setCurrentIndex(prev => prev + 1);
@@ -69,6 +127,22 @@ function ManualDifferentiation() {
 
   function handleSkip() {
     setCurrentIndex(prev => prev + 1);
+  }
+
+  if (!currentVariation) {
+    return (
+      <Box>
+        <NavigationBar />
+        <Box>
+          <Box bg="#08004F" py={8} px={6} position="relative">
+            <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manual Differentiation</Heading>
+          </Box>
+          <Box p={8} textAlign="center">
+            <Text fontSize="xl">All variations have been processed.</Text>
+          </Box>
+        </Box>
+      </Box>
+    );
   }
 
   return (
@@ -102,6 +176,16 @@ function ManualDifferentiation() {
               boxShadow="sm"
             >
               <VStack spacing={6} align="stretch">
+                <HStack spacing={4} justify="center">
+                  <Text fontSize="2xl" fontWeight="medium" color="gray.600">01</Text>
+                  <Text fontSize="2xl" fontWeight="medium">vs.</Text>
+                  <Text fontSize="2xl" fontWeight="medium" color="gray.600">{currentVariation.manuscriptSigla}</Text>
+                </HStack>
+
+                <Text textAlign="center" fontSize="md" color="gray.600">
+                  Verse {currentVariation.verseNumber}, Word {currentVariation.position}
+                </Text>
+
                 <VStack spacing={4}>
                   <Box 
                     w="100%" 
@@ -128,7 +212,7 @@ function ManualDifferentiation() {
                     bg="gray.50"
                   >
                     <Text fontSize="xl">{currentVariation.word2}</Text>
-                    <Text fontSize="sm" color="gray.500" mt={1}>Manuscript {currentVariation.sigla}</Text>
+                    <Text fontSize="sm" color="gray.500" mt={1}>Manuscript {currentVariation.manuscriptSigla}</Text>
                   </Box>
                 </VStack>
 
