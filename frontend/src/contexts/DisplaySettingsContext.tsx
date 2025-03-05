@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useColorMode } from '@chakra-ui/react';
 
 interface DisplaySettings {
   theme: 'light' | 'dark';
@@ -13,6 +14,7 @@ interface DisplaySettingsContextType {
 const DisplaySettingsContext = createContext<DisplaySettingsContextType | undefined>(undefined);
 
 export function DisplaySettingsProvider({ children }: { children: React.ReactNode }) {
+  const { colorMode, setColorMode } = useColorMode();
   const [settings, setSettings] = useState<DisplaySettings>({
     theme: 'light',
     fontSize: 'medium',
@@ -32,20 +34,12 @@ export function DisplaySettingsProvider({ children }: { children: React.ReactNod
     }
   }, []);
 
-  const applySettings = (newSettings: Partial<DisplaySettings>) => {
-    // Apply theme
-    if (newSettings.theme) {
-      document.documentElement.setAttribute('data-theme', newSettings.theme);
-      // Also update body background and text color for dark mode
-      if (newSettings.theme === 'dark') {
-        document.body.style.backgroundColor = '#1A202C';
-        document.body.style.color = '#FFFFFF';
-      } else {
-        document.body.style.backgroundColor = '#FFFFFF';
-        document.body.style.color = '#000000';
-      }
-    }
+  // Sync Chakra color mode with our theme setting
+  useEffect(() => {
+    setColorMode(settings.theme);
+  }, [settings.theme, setColorMode]);
 
+  const applySettings = (newSettings: Partial<DisplaySettings>) => {
     // Apply font size
     if (newSettings.fontSize) {
       document.documentElement.style.fontSize = {
@@ -60,6 +54,7 @@ export function DisplaySettingsProvider({ children }: { children: React.ReactNod
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings);
     applySettings(newSettings);
+    localStorage.setItem('displaySettings', JSON.stringify(updatedSettings));
   };
 
   return (
