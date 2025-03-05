@@ -16,6 +16,8 @@ import {
   IconButton,
   Alert,
   AlertIcon,
+  Spinner,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import { ViewIcon, RepeatIcon, EditIcon, AddIcon, DeleteIcon } from '@chakra-ui/icons';
 import NavigationBar from '../components/NavigationBar.tsx';
@@ -31,6 +33,49 @@ const defaultVariationTypes = [
   "Omission"
 ];
 
+// TODO: Move to a separate API service file
+const variationTypesService = {
+  async fetchTypes() {
+    // TODO: Replace with actual API call
+    const savedTypes = localStorage.getItem('variationTypes');
+    if (savedTypes) {
+      return JSON.parse(savedTypes);
+    }
+    return defaultVariationTypes;
+  },
+
+  async saveTypes(types: string[]) {
+    // TODO: Replace with actual API call
+    localStorage.setItem('variationTypes', JSON.stringify(types));
+    return types;
+  },
+
+  async addType(type: string) {
+    // TODO: Replace with actual API call
+    const savedTypes = await this.fetchTypes();
+    const newTypes = [...savedTypes, type];
+    await this.saveTypes(newTypes);
+    return newTypes;
+  },
+
+  async updateType(index: number, newValue: string) {
+    // TODO: Replace with actual API call
+    const savedTypes = await this.fetchTypes();
+    const newTypes = [...savedTypes];
+    newTypes[index] = newValue;
+    await this.saveTypes(newTypes);
+    return newTypes;
+  },
+
+  async deleteType(index: number) {
+    // TODO: Replace with actual API call
+    const savedTypes = await this.fetchTypes();
+    const newTypes = savedTypes.filter(function(_, i) { return i !== index; });
+    await this.saveTypes(newTypes);
+    return newTypes;
+  }
+};
+
 function Settings() {
   const { settings, updateSettings } = useDisplaySettings();
   const toast = useToast();
@@ -38,20 +83,29 @@ function Settings() {
   const [newType, setNewType] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Add color mode values
+  const alertBg = useColorModeValue('blue.50', 'rgba(37, 47, 110, 0.3)');
+  const alertBorder = useColorModeValue('blue.100', 'rgba(44, 82, 130, 0.5)');
 
   useEffect(function() {
-    // Load variation types from localStorage or use defaults
-    const savedTypes = localStorage.getItem('variationTypes');
-    if (savedTypes) {
+    async function loadTypes() {
       try {
-        setVariationTypes(JSON.parse(savedTypes));
-      } catch (error) {
-        console.error('Error loading variation types:', error);
-        setVariationTypes(defaultVariationTypes);
+        setIsLoading(true);
+        setError(null);
+        const types = await variationTypesService.fetchTypes();
+        setVariationTypes(types);
+      } catch (err) {
+        setError('Failed to load variation types');
+        console.error('Error loading variation types:', err);
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      setVariationTypes(defaultVariationTypes);
     }
+    loadTypes();
   }, []);
 
   function handleChange(field: string, value: string | boolean) {
@@ -59,29 +113,60 @@ function Settings() {
   }
 
   async function handleSave() {
-    // Save all settings to localStorage
-    localStorage.setItem('displaySettings', JSON.stringify(settings));
-    localStorage.setItem('variationTypes', JSON.stringify(variationTypes));
-    
-    toast({
-      title: 'Settings saved successfully',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-  }
-
-  function handleAddType() {
-    if (newType.trim() && !variationTypes.includes(newType.trim())) {
-      setVariationTypes([...variationTypes, newType.trim()]);
-      setNewType('');
+    try {
+      setIsSaving(true);
+      setError(null);
+      
+      // Save display settings
+      localStorage.setItem('displaySettings', JSON.stringify(settings));
+      
+      // Save variation types
+      await variationTypesService.saveTypes(variationTypes);
+      
       toast({
-        title: 'Variation type added',
-        description: 'Remember to save your changes',
-        status: 'info',
-        duration: 2000,
+        title: 'Settings saved successfully',
+        status: 'success',
+        duration: 3000,
         isClosable: true,
       });
+    } catch (err) {
+      setError('Failed to save settings');
+      toast({
+        title: 'Error saving settings',
+        description: 'Please try again',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleAddType() {
+    if (newType.trim() && !variationTypes.includes(newType.trim())) {
+      try {
+        setError(null);
+        const updatedTypes = await variationTypesService.addType(newType.trim());
+        setVariationTypes(updatedTypes);
+        setNewType('');
+        toast({
+          title: 'Variation type added',
+          description: 'Remember to save your changes',
+          status: 'info',
+          duration: 2000,
+          isClosable: true,
+        });
+      } catch (err) {
+        setError('Failed to add variation type');
+        toast({
+          title: 'Error adding variation type',
+          description: 'Please try again',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     }
   }
 
@@ -90,24 +175,36 @@ function Settings() {
     setEditValue(variationTypes[index]);
   }
 
-  function handleSaveEdit(index: number) {
+  async function handleSaveEdit(index: number) {
     if (editValue.trim() && !variationTypes.includes(editValue.trim())) {
-      const newTypes = [...variationTypes];
-      newTypes[index] = editValue.trim();
-      setVariationTypes(newTypes);
-      toast({
-        title: 'Variation type updated',
-        description: 'Remember to save your changes',
-        status: 'info',
-        duration: 2000,
-        isClosable: true,
-      });
+      try {
+        setError(null);
+        const updatedTypes = await variationTypesService.updateType(index, editValue.trim());
+        setVariationTypes(updatedTypes);
+        toast({
+          title: 'Variation type updated',
+          description: 'Remember to save your changes',
+          status: 'info',
+          duration: 2000,
+          isClosable: true,
+        });
+      } catch (err) {
+        setError('Failed to update variation type');
+        toast({
+          title: 'Error updating variation type',
+          description: 'Please try again',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      } finally {
+        setEditingIndex(null);
+        setEditValue('');
+      }
     }
-    setEditingIndex(null);
-    setEditValue('');
   }
 
-  function handleDeleteType(index: number) {
+  async function handleDeleteType(index: number) {
     if (variationTypes.length <= 1) {
       toast({
         title: 'Cannot delete',
@@ -119,15 +216,27 @@ function Settings() {
       return;
     }
 
-    const newTypes = variationTypes.filter(function(_, i) { return i !== index; });
-    setVariationTypes(newTypes);
-    toast({
-      title: 'Variation type deleted',
-      description: 'Remember to save your changes',
-      status: 'info',
-      duration: 2000,
-      isClosable: true,
-    });
+    try {
+      setError(null);
+      const updatedTypes = await variationTypesService.deleteType(index);
+      setVariationTypes(updatedTypes);
+      toast({
+        title: 'Variation type deleted',
+        description: 'Remember to save your changes',
+        status: 'info',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err) {
+      setError('Failed to delete variation type');
+      toast({
+        title: 'Error deleting variation type',
+        description: 'Please try again',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -168,6 +277,7 @@ function Settings() {
               size="md"
               px={8}
               leftIcon={<Icon as={RepeatIcon} />}
+              isLoading={isSaving}
             >
               Save Changes
             </Button>
@@ -175,12 +285,25 @@ function Settings() {
         </Box>
 
         <Box p={8} maxW="1200px" mx="auto">
-          <Alert status="info" mb={6} borderRadius="md">
+          <Alert 
+            status="info" 
+            mb={6} 
+            borderRadius="md"
+            colorScheme="blue"
+            variant="left-accent"
+          >
             <AlertIcon />
             <Text>
               <strong>Important:</strong> Remember to click "Save Changes" before refreshing or navigating away. Unsaved changes will be lost.
             </Text>
           </Alert>
+
+          {error && (
+            <Alert status="error" mb={6} borderRadius="md">
+              <AlertIcon />
+              <Text>{error}</Text>
+            </Alert>
+          )}
 
           <VStack spacing={8} align="stretch">
             {/* Display Settings */}
@@ -222,9 +345,10 @@ function Settings() {
               <HStack mb={4}>
                 <Icon as={EditIcon} fontSize="24px" color="gray.600" />
                 <Heading size="md">Variation Types</Heading>
+                {isLoading && <Spinner size="sm" />}
               </HStack>
               <VStack spacing={4} align="stretch" pl={8}>
-                {variationTypes.map(function(type, index) {
+                {!isLoading && variationTypes.map(function(type, index) {
                   return (
                     <Flex key={index} align="center" justify="space-between">
                       {editingIndex === index ? (
@@ -256,22 +380,24 @@ function Settings() {
                     </Flex>
                   );
                 })}
-                <Flex mt={4} gap={4}>
-                  <Input
-                    placeholder="Add new variation type"
-                    value={newType}
-                    onChange={handleInputChange}
-                    onKeyPress={handleKeyPress}
-                  />
-                  <Button
-                    leftIcon={<AddIcon />}
-                    onClick={handleAddType}
-                    colorScheme="blue"
-                    isDisabled={!newType.trim()}
-                  >
-                    Add Type
-                  </Button>
-                </Flex>
+                {!isLoading && (
+                  <Flex mt={4} gap={4}>
+                    <Input
+                      placeholder="Add new variation type"
+                      value={newType}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                    />
+                    <Button
+                      leftIcon={<AddIcon />}
+                      onClick={handleAddType}
+                      colorScheme="blue"
+                      isDisabled={!newType.trim()}
+                    >
+                      Add Type
+                    </Button>
+                  </Flex>
+                )}
               </VStack>
             </Box>
           </VStack>
