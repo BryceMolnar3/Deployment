@@ -73,7 +73,7 @@ function ManualDifferentiation() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [isSignificant, setIsSignificant] = useState(true);
-  const [variationType, setVariationType] = useState('different spelling');
+  const [variationType, setVariationType] = useState('Different Spelling');
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
 
@@ -250,12 +250,12 @@ function ManualDifferentiation() {
                       size="lg"
                       borderColor="gray.400"
                     >
-                      <option value="different spelling">different spelling</option>
-                      <option value="abbreviation">abbreviation</option>
-                      <option value="word choice">word choice</option>
-                      <option value="word order">word order</option>
-                      <option value="addition">addition</option>
-                      <option value="omission">omission</option>
+                      <option value="Different Spelling">Different Spelling</option>
+                      <option value="Abbreviation">Abbreviation</option>
+                      <option value="Word Choice">Word Choice</option>
+                      <option value="Word Order">Word Order</option>
+                      <option value="Addition">Addition</option>
+                      <option value="Omission">Omission</option>
                     </Select>
                   </Box>
 
