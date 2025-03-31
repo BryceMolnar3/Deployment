@@ -8,10 +8,14 @@ from .collate import collate_texts
 from pymongo import MongoClient
 from bson.json_util import dumps
 import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 
 # MongoDB connection
 client = MongoClient('localhost', 27017)
 db = client.document_db
+documents = db['documents']
 
 @api_view(['GET'])
 def get_manuscripts(request):
@@ -48,53 +52,140 @@ def add_version(request):
         return Response(serializer.data, status=201)
     return Response(serializer.errors, status=400)
 
-@api_view(['POST'])
-def compare_texts(request):
-    texts = request.data.get("texts", [])
-    result = collate_texts(texts)
-    return Response({"collation": result})
-
-@api_view(['GET'])
+@require_http_methods(["GET"])
 def get_documents(request):
     try:
-        documents = list(db.documents.find())
+        # Get all documents from MongoDB
+        cursor = documents.find()
+        # Convert cursor to list and then to JSON
+        documents_list = list(cursor)
         # Convert ObjectId to string for JSON serialization
-        for doc in documents:
+        for doc in documents_list:
             doc['_id'] = str(doc['_id'])
-        return Response(documents)
+        return JsonResponse(documents_list, safe=False)
     except Exception as e:
-        return Response({'error': str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
 
-@api_view(['GET'])
+@require_http_methods(["GET"])
 def search_documents(request):
     try:
-        query = request.GET.get('q', '').lower()
-        documents = list(db.documents.find({
+        query = request.GET.get('q', '')
+        # Search in MongoDB
+        cursor = documents.find({
             '$or': [
-                {'filename': {'$regex': query, '$options': 'i'}},
                 {'metadata.MS ID:': {'$regex': query, '$options': 'i'}},
                 {'metadata.Other Names:': {'$regex': query, '$options': 'i'}},
-                {'metadata.Origin:': {'$regex': query, '$options': 'i'}},
-                {'metadata.Date:': {'$regex': query, '$options': 'i'}}
+                {'metadata.Date:': {'$regex': query, '$options': 'i'}},
+                {'metadata.Origin:': {'$regex': query, '$options': 'i'}}
             ]
-        }))
+        })
+        # Convert cursor to list and then to JSON
+        documents_list = list(cursor)
         # Convert ObjectId to string for JSON serialization
-        for doc in documents:
+        for doc in documents_list:
             doc['_id'] = str(doc['_id'])
-        return Response(documents)
+        return JsonResponse(documents_list, safe=False)
     except Exception as e:
-        return Response({'error': str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
 
-@api_view(['GET'])
+@require_http_methods(["GET"])
 def get_document(request, filename):
     try:
-        document = db.documents.find_one({'filename': filename})
-        if not document:
-            return Response({'error': 'Document not found'}, status=404)
-        
-        # Convert ObjectId to string for JSON serialization
-        document['_id'] = str(document['_id'])
-        return Response(document)
+        # Find document by filename
+        document = documents.find_one({'filename': filename})
+        if document:
+            # Convert ObjectId to string for JSON serialization
+            document['_id'] = str(document['_id'])
+            return JsonResponse(document)
+        else:
+            return JsonResponse({'error': 'Document not found'}, status=404)
     except Exception as e:
-        return Response({'error': str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_document(request):
+    try:
+        # Get the document data from the form
+        document_data = json.loads(request.POST.get('document', '{}'))
+        
+        # Validate metadata field names
+        if 'metadata' in document_data:
+            # Replace any dots in field names with spaces
+            metadata = document_data['metadata']
+            cleaned_metadata = {}
+            for key, value in metadata.items():
+                cleaned_key = key.replace('.', ' ').strip()
+                cleaned_metadata[cleaned_key] = value
+            document_data['metadata'] = cleaned_metadata
+        
+        # Check if document with same filename already exists
+        existing_doc = documents.find_one({'filename': document_data['filename']})
+        if existing_doc:
+            return JsonResponse({'error': 'Document with this filename already exists'}, status=400)
+        
+        # Handle image upload if present
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            # Here you would typically save the image to a file storage system
+            # For now, we'll just store the filename
+            document_data['image_filename'] = image_file.name
+        
+        # Insert new document
+        result = documents.insert_one(document_data)
+        
+        # Get the inserted document
+        new_document = documents.find_one({'_id': result.inserted_id})
+        new_document['_id'] = str(new_document['_id'])
+        
+        return JsonResponse(new_document, status=201)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_draft(request):
+    try:
+        # Get the document data from the form
+        document_data = json.loads(request.POST.get('document', '{}'))
+        
+        # Validate metadata field names
+        if 'metadata' in document_data:
+            # Replace any dots in field names with spaces
+            metadata = document_data['metadata']
+            cleaned_metadata = {}
+            for key, value in metadata.items():
+                cleaned_key = key.replace('.', ' ').strip()
+                cleaned_metadata[cleaned_key] = value
+            document_data['metadata'] = cleaned_metadata
+        
+        # Check if draft with same filename already exists
+        existing_doc = documents.find_one({'filename': document_data['filename']})
+        if existing_doc:
+            return JsonResponse({'error': 'Document with this filename already exists'}, status=400)
+        
+        # Handle image upload if present
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            # Here you would typically save the image to a file storage system
+            # For now, we'll just store the filename
+            document_data['image_filename'] = image_file.name
+        
+        # Add draft flag to the document
+        document_data['is_draft'] = True
+        
+        # Insert new draft document
+        result = documents.insert_one(document_data)
+        
+        # Get the inserted document
+        new_document = documents.find_one({'_id': result.inserted_id})
+        new_document['_id'] = str(new_document['_id'])
+        
+        return JsonResponse(new_document, status=201)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 

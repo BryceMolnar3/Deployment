@@ -14,6 +14,9 @@ import {
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 
+// API base URL - can be configured based on environment
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
 function NewDataEntry() {
   const [formData, setFormData] = useState({
     ms_id: '',
@@ -83,20 +86,42 @@ function NewDataEntry() {
   async function handleSaveAsDraft() {
     try {
       setIsLoading(true);
-      // TODO: Replace with your API endpoint
-      const response = await fetch('/api/manuscripts/draft', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const formDataToSend = new FormData();
+      
+      // Add the main document data
+      formDataToSend.append('document', JSON.stringify({
+        filename: `${formData.sigla}.docx`,
+        metadata: {
+          'MS ID:': formData.ms_id,
+          'Other Names:': formData.other_names,
+          'Contents:': '',
+          'Date:': formData.date,
+          'Origin:': formData.place_of_origin,
+          'Total Folia:': formData.total_folia,
+          'Dimensions:': formData.dimensions,
+          'Materials:': formData.materials,
+          'Laod Folia:': formData.laod_folia,
+          'Format Description:': formData.format_description
         },
-        body: JSON.stringify({
-          ...formData,
-          image: selectedImage
-        })
+        verses: [] // Empty verses array for draft
+      }));
+
+      // Add the image if it exists
+      if (selectedImage) {
+        // Convert base64 to blob
+        const response = await fetch(selectedImage);
+        const blob = await response.blob();
+        formDataToSend.append('image', blob, 'manuscript_image.jpg');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/documents/draft/`, {
+        method: 'POST',
+        body: formDataToSend
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save draft');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save draft');
       }
 
       toast({
@@ -129,20 +154,51 @@ function NewDataEntry() {
         throw new Error(`Required fields missing: ${missingFields.join(', ')}`);
       }
 
-      // TODO: Replace with your API endpoint
-      const response = await fetch('/api/manuscripts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          image: selectedImage
+      // Process transcription into verses
+      const verses = formData.transcription
+        .split('\n')
+        .map((line, index) => {
+          const verseNumber = index + 1;
+          return [verseNumber.toString(), line.trim()];
         })
+        .filter(([_, text]) => text.length > 0);
+
+      const formDataToSend = new FormData();
+      
+      // Add the main document data
+      formDataToSend.append('document', JSON.stringify({
+        filename: `${formData.sigla}.docx`,
+        metadata: {
+          'MS ID:': formData.ms_id,
+          'Other Names:': formData.other_names,
+          'Contents:': '',
+          'Date:': formData.date,
+          'Origin:': formData.place_of_origin,
+          'Total Folia:': formData.total_folia,
+          'Dimensions:': formData.dimensions,
+          'Materials:': formData.materials,
+          'Laod Folia:': formData.laod_folia,
+          'Format Description:': formData.format_description
+        },
+        verses: verses
+      }));
+
+      // Add the image if it exists
+      if (selectedImage) {
+        // Convert base64 to blob
+        const response = await fetch(selectedImage);
+        const blob = await response.blob();
+        formDataToSend.append('image', blob, 'manuscript_image.jpg');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/documents/create/`, {
+        method: 'POST',
+        body: formDataToSend
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit manuscript');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit manuscript');
       }
 
       toast({
