@@ -5,6 +5,11 @@ from django.db.models import Q
 from .models import TextVersion, Manuscript
 from .serializers import TextVersionSerializer, ManuscriptSerializer
 from .collate import collate_texts
+from pymongo import MongoClient
+
+# MongoDB connection
+client = MongoClient('localhost', 27017)
+db = client.document_db
 
 @api_view(['GET'])
 def get_manuscripts(request):
@@ -46,4 +51,35 @@ def compare_texts(request):
     texts = request.data.get("texts", [])
     result = collate_texts(texts)
     return Response({"collation": result})
+
+@api_view(['GET'])
+def get_documents(request):
+    try:
+        documents = list(db.documents.find())
+        # Convert ObjectId to string for JSON serialization
+        for doc in documents:
+            doc['_id'] = str(doc['_id'])
+        return Response(documents)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def search_documents(request):
+    try:
+        query = request.GET.get('q', '').lower()
+        documents = list(db.documents.find({
+            '$or': [
+                {'filename': {'$regex': query, '$options': 'i'}},
+                {'metadata.MS ID:': {'$regex': query, '$options': 'i'}},
+                {'metadata.Other Names:': {'$regex': query, '$options': 'i'}},
+                {'metadata.Origin:': {'$regex': query, '$options': 'i'}},
+                {'metadata.Date:': {'$regex': query, '$options': 'i'}}
+            ]
+        }))
+        # Convert ObjectId to string for JSON serialization
+        for doc in documents:
+            doc['_id'] = str(doc['_id'])
+        return Response(documents)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 

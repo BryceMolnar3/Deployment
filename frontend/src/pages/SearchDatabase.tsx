@@ -18,11 +18,44 @@ import {
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate } from 'react-router-dom';
-// Temporarily keep local data for development
-import { manuscripts as localManuscripts, Manuscript } from '../data/manuscripts.ts';
+
+// Define the Manuscript interface to match MongoDB structure
+interface Manuscript {
+  _id: string;
+  filename: string;
+  metadata: {
+    'MS ID:': string;
+    'Other Names:': string;
+    'Contents:': string;
+    'Date:': string;
+    'Origin:': string;
+    'Total Folia:': string;
+    'Dimensions:': string;
+    'Materials:': string;
+    'Laod. Folia:': string;
+    'Format Description:': string;
+  };
+  verses: {
+    verse_number: number;
+    verse_text: string;
+  }[];
+}
+
+// Helper function to convert MongoDB manuscript to frontend format
+function convertManuscript(mongoManuscript: any): Manuscript {
+  return {
+    _id: mongoManuscript._id,
+    filename: mongoManuscript.filename,
+    metadata: mongoManuscript.metadata,
+    verses: mongoManuscript.verses.map(([number, text]: [string, string]) => ({
+      verse_number: parseInt(number),
+      verse_text: text
+    }))
+  };
+}
 
 // API base URL - can be configured based on environment
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
 function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Manuscript[] {
   const sortedManuscripts = [...manuscripts];
@@ -30,37 +63,37 @@ function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Man
   switch (sortOption) {
     case 'date-asc':
       return sortedManuscripts.sort((a, b) => {
-        const yearA = parseInt(a.date.match(/\d+/)?.[0] || '0');
-        const yearB = parseInt(b.date.match(/\d+/)?.[0] || '0');
+        const yearA = parseInt(a.metadata['Date:'].match(/\d+/)?.[0] || '0');
+        const yearB = parseInt(b.metadata['Date:'].match(/\d+/)?.[0] || '0');
         return yearA - yearB;
       });
     
     case 'date-desc':
       return sortedManuscripts.sort((a, b) => {
-        const yearA = parseInt(a.date.match(/\d+/)?.[0] || '0');
-        const yearB = parseInt(b.date.match(/\d+/)?.[0] || '0');
+        const yearA = parseInt(a.metadata['Date:'].match(/\d+/)?.[0] || '0');
+        const yearB = parseInt(b.metadata['Date:'].match(/\d+/)?.[0] || '0');
         return yearB - yearA;
       });
 
     case 'origin-az':
       return sortedManuscripts.sort((a, b) => 
-        a.place_of_origin.localeCompare(b.place_of_origin)
+        a.metadata['Origin:'].localeCompare(b.metadata['Origin:'])
       );
 
     case 'origin-za':
       return sortedManuscripts.sort((a, b) => 
-        b.place_of_origin.localeCompare(a.place_of_origin)
+        b.metadata['Origin:'].localeCompare(a.metadata['Origin:'])
       );
 
     case 'country-az':
       return sortedManuscripts.sort((a, b) => {
-        const countryA = getCountryFromOrigin(a.place_of_origin);
-        const countryB = getCountryFromOrigin(b.place_of_origin);
+        const countryA = getCountryFromOrigin(a.metadata['Origin:']);
+        const countryB = getCountryFromOrigin(b.metadata['Origin:']);
         
         const countryCompare = countryA.localeCompare(countryB);
         
         if (countryCompare === 0) {
-          return a.place_of_origin.localeCompare(b.place_of_origin);
+          return a.metadata['Origin:'].localeCompare(b.metadata['Origin:']);
         }
         
         return countryCompare;
@@ -68,13 +101,13 @@ function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Man
 
     case 'country-za':
       return sortedManuscripts.sort((a, b) => {
-        const countryA = getCountryFromOrigin(a.place_of_origin);
-        const countryB = getCountryFromOrigin(b.place_of_origin);
+        const countryA = getCountryFromOrigin(a.metadata['Origin:']);
+        const countryB = getCountryFromOrigin(b.metadata['Origin:']);
         
         const countryCompare = countryB.localeCompare(countryA);
         
         if (countryCompare === 0) {
-          return b.place_of_origin.localeCompare(a.place_of_origin);
+          return b.metadata['Origin:'].localeCompare(a.metadata['Origin:']);
         }
         
         return countryCompare;
@@ -82,32 +115,32 @@ function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Man
     
     case 'msid-az':
       return sortedManuscripts.sort((a, b) => 
-        a.ms_id.localeCompare(b.ms_id)
+        a.metadata['MS ID:'].localeCompare(b.metadata['MS ID:'])
       );
 
     case 'msid-za':
       return sortedManuscripts.sort((a, b) => 
-        b.ms_id.localeCompare(a.ms_id)
+        b.metadata['MS ID:'].localeCompare(a.metadata['MS ID:'])
       );
 
     case 'other-names-az':
       return sortedManuscripts.sort((a, b) => 
-        a.other_names.localeCompare(b.other_names)
+        a.metadata['Other Names:'].localeCompare(b.metadata['Other Names:'])
       );
 
     case 'other-names-za':
       return sortedManuscripts.sort((a, b) => 
-        b.other_names.localeCompare(a.other_names)
+        b.metadata['Other Names:'].localeCompare(a.metadata['Other Names:'])
       );
     
     case 'sigla-asc':
       return sortedManuscripts.sort((a, b) => 
-        a.sigla.localeCompare(b.sigla)
+        a.filename.localeCompare(b.filename)
       );
     
     case 'sigla-desc':
       return sortedManuscripts.sort((a, b) => 
-        b.sigla.localeCompare(a.sigla)
+        b.filename.localeCompare(a.filename)
       );
     
     default:
@@ -119,9 +152,13 @@ function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Man
 const manuscriptService = {
   async getAllManuscripts(): Promise<Manuscript[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/manuscripts/`);
-      if (!response.ok) throw new Error('Failed to fetch manuscripts');
-      return await response.json();
+      const response = await fetch(`${API_BASE_URL}/api/documents/`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch manuscripts: ${errorText}`);
+      }
+      const data = await response.json();
+      return data.map(convertManuscript);
     } catch (error) {
       console.error('Error fetching manuscripts:', error);
       throw error;
@@ -130,9 +167,13 @@ const manuscriptService = {
 
   async searchManuscripts(query: string): Promise<Manuscript[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/manuscripts/search/?q=${encodeURIComponent(query)}`);
-      if (!response.ok) throw new Error('Failed to search manuscripts');
-      return await response.json();
+      const response = await fetch(`${API_BASE_URL}/api/documents/search/?q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to search manuscripts: ${errorText}`);
+      }
+      const data = await response.json();
+      return data.map(convertManuscript);
     } catch (error) {
       console.error('Error searching manuscripts:', error);
       throw error;
@@ -388,45 +429,35 @@ function SearchDatabase() {
 
           <Box borderWidth={1} borderColor="gray.200" borderRadius="md" overflow="hidden">
             <Table variant="simple">
-              <Thead bg="gray.50">
+              <Thead>
                 <Tr>
-                  <Th>MS ID</Th>
                   <Th>Sigla</Th>
+                  <Th>MS ID</Th>
                   <Th>Other Names</Th>
                   <Th>Date</Th>
-                  <Th>Place of Origin</Th>
+                  <Th>Origin</Th>
                   <Th>Actions</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {searchResults.map((manuscript) => (
-                  <Tr key={manuscript.sigla}>
-                    <Td>{manuscript.ms_id}</Td>
-                    <Td>{manuscript.sigla}</Td>
-                    <Td>{manuscript.other_names}</Td>
-                    <Td>{manuscript.date}</Td>
-                    <Td>{manuscript.place_of_origin}</Td>
+                  <Tr key={manuscript._id}>
+                    <Td>{manuscript.filename.replace('.docx', '')}</Td>
+                    <Td>{manuscript.metadata['MS ID:']}</Td>
+                    <Td>{manuscript.metadata['Other Names:']}</Td>
+                    <Td>{manuscript.metadata['Date:']}</Td>
+                    <Td>{manuscript.metadata['Origin:']}</Td>
                     <Td>
                       <Button
-                        bg="#08004F"
-                        color="white"
-                        _hover={{ bg: "#160082" }}
                         size="sm"
-                        onClick={() => handleViewManuscript(manuscript.sigla)}
-                        borderRadius="full"
+                        colorScheme="blue"
+                        onClick={() => navigate(`/manuscript/${manuscript.filename.replace('.docx', '')}`)}
                       >
                         View
                       </Button>
                     </Td>
                   </Tr>
                 ))}
-                {searchResults.length === 0 && !isLoading && (
-                  <Tr>
-                    <Td colSpan={6} textAlign="center" py={4}>
-                      No results found
-                    </Td>
-                  </Tr>
-                )}
               </Tbody>
             </Table>
           </Box>
