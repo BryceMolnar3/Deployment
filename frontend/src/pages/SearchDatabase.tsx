@@ -451,7 +451,7 @@ function SearchDatabase() {
                       <Button
                         size="sm"
                         colorScheme="blue"
-                        onClick={() => navigate(`/manuscript/${manuscript.filename.replace('.docx', '')}`)}
+                        onClick={() => navigate(`/manuscript-viewer/${manuscript.filename.replace('.docx', '')}`)}
                       >
                         View
                       </Button>

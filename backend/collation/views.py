@@ -6,6 +6,8 @@ from .models import TextVersion, Manuscript
 from .serializers import TextVersionSerializer, ManuscriptSerializer
 from .collate import collate_texts
 from pymongo import MongoClient
+from bson.json_util import dumps
+import json
 
 # MongoDB connection
 client = MongoClient('localhost', 27017)
@@ -80,6 +82,19 @@ def search_documents(request):
         for doc in documents:
             doc['_id'] = str(doc['_id'])
         return Response(documents)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def get_document(request, filename):
+    try:
+        document = db.documents.find_one({'filename': filename})
+        if not document:
+            return Response({'error': 'Document not found'}, status=404)
+        
+        # Convert ObjectId to string for JSON serialization
+        document['_id'] = str(document['_id'])
+        return Response(document)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 

@@ -9,4 +9,5 @@ urlpatterns = [
     path('compare/', views.compare_texts, name='compare_texts'),
     path('documents/', views.get_documents, name='get_documents'),
     path('documents/search/', views.search_documents, name='search_documents'),
+    path('documents/<str:filename>', views.get_document, name='get_document'),
 ] 
