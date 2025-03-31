@@ -119,13 +119,9 @@ function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Man
 const manuscriptService = {
   async getAllManuscripts(): Promise<Manuscript[]> {
     try {
-      // When ready to switch to backend, uncomment this code:
-      // const response = await fetch(`${API_BASE_URL}/manuscripts`);
-      // if (!response.ok) throw new Error('Failed to fetch manuscripts');
-      // return await response.json();
-      
-      // For now, return local data
-      return Object.values(localManuscripts);
+      const response = await fetch(`${API_BASE_URL}/manuscripts/`);
+      if (!response.ok) throw new Error('Failed to fetch manuscripts');
+      return await response.json();
     } catch (error) {
       console.error('Error fetching manuscripts:', error);
       throw error;
@@ -134,22 +130,9 @@ const manuscriptService = {
 
   async searchManuscripts(query: string): Promise<Manuscript[]> {
     try {
-      // When ready to switch to backend, uncomment this code:
-      // const response = await fetch(`${API_BASE_URL}/manuscripts/search?q=${encodeURIComponent(query)}`);
-      // if (!response.ok) throw new Error('Failed to search manuscripts');
-      // return await response.json();
-      
-      // For now, search local data
-      const searchQuery = query.toLowerCase();
-      return Object.values(localManuscripts).filter(manuscript => 
-        manuscript.ms_id.toLowerCase().includes(searchQuery) ||
-        manuscript.sigla.toLowerCase().includes(searchQuery) ||
-        manuscript.other_names.toLowerCase().includes(searchQuery) ||
-        manuscript.place_of_origin.toLowerCase().includes(searchQuery) ||
-        manuscript.date.toLowerCase().includes(searchQuery) ||
-        manuscript.materials.toLowerCase().includes(searchQuery) ||
-        manuscript.format_description.toLowerCase().includes(searchQuery)
-      );
+      const response = await fetch(`${API_BASE_URL}/manuscripts/search/?q=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error('Failed to search manuscripts');
+      return await response.json();
     } catch (error) {
       console.error('Error searching manuscripts:', error);
       throw error;
@@ -158,12 +141,7 @@ const manuscriptService = {
 
   async getSortedManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Promise<Manuscript[]> {
     try {
-      // When ready to switch to backend, uncomment this code:
-      // const response = await fetch(`${API_BASE_URL}/manuscripts/sort?option=${sortOption}`);
-      // if (!response.ok) throw new Error('Failed to sort manuscripts');
-      // return await response.json();
-      
-      // For now, sort locally
+      // Since the backend doesn't support sorting yet, we'll do it client-side
       return sortManuscripts(manuscripts, sortOption);
     } catch (error) {
       console.error('Error sorting manuscripts:', error);
