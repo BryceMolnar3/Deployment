@@ -9,6 +9,7 @@ urlpatterns = [
     path('documents/', views.get_documents, name='get_documents'),
     path('documents/search/', views.search_documents, name='search_documents'),
     path('documents/<str:filename>', views.get_document, name='get_document'),
+    path('documents/<str:filename>/update', views.update_document, name='update_document'),
     path('documents/create/', views.create_document, name='create_document'),
     path('documents/draft/', views.create_draft, name='create_draft'),
 ] 

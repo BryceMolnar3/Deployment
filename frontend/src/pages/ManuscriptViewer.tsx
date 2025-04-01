@@ -1,5 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Flex, Heading, Text, Image, VStack, Spinner, useToast } from '@chakra-ui/react';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Box, 
+  Flex, 
+  Heading, 
+  Text, 
+  Image, 
+  VStack, 
+  Spinner, 
+  useToast,
+  Button,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+} from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
@@ -19,13 +36,14 @@ interface Manuscript {
     'Total Folia:': string;
     'Dimensions:': string;
     'Materials:': string;
-    'Laod. Folia:': string;
+    'Laod Folia:': string;
     'Format Description:': string;
   };
   verses: {
     verse_number: number;
     verse_text: string;
   }[];
+  image_filename?: string;
 }
 
 function ManuscriptViewer() {
@@ -35,6 +53,10 @@ function ManuscriptViewer() {
   const [manuscript, setManuscript] = useState<Manuscript | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
 
   // Theme-based colors
@@ -83,6 +105,73 @@ function ManuscriptViewer() {
 
     fetchManuscript();
   }, [sigla, toast]);
+
+  function handleImageClick() {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        setSelectedImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  async function handleImageUpload() {
+    if (!selectedImage || !manuscript) return;
+
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      
+      // Convert base64 to blob
+      const response = await fetch(selectedImage);
+      const blob = await response.blob();
+      formData.append('image', blob, 'manuscript_image.jpg');
+
+      // Add the manuscript data
+      formData.append('document', JSON.stringify({
+        ...manuscript,
+        image_filename: 'manuscript_image.jpg'
+      }));
+
+      const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/update`, {
+        method: 'PUT',
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const updatedManuscript = await uploadResponse.json();
+      setManuscript(updatedManuscript);
+      onClose();
+
+      toast({
+        title: 'Image uploaded successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error uploading image',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -134,7 +223,7 @@ function ManuscriptViewer() {
                 </Flex>
                 <Flex>
                   <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Laod. Folia:</Text>
-                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Laod. Folia:']}</u></Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Laod Folia:']}</u></Text>
                 </Flex>
                 <Flex>
                   <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Dimensions:</Text>
@@ -194,16 +283,97 @@ function ManuscriptViewer() {
             </Box>
 
             <Box flex={1} display="flex" justifyContent="flex-start">
-              <Image 
-                src="/images/manuscript-image.png"
-                alt={`${manuscript.metadata['Other Names:']} manuscript page`}
-                maxH="900px"
-                objectFit="contain"
-              />
+              {manuscript.image_filename ? (
+                <Image 
+                  src={`${API_BASE_URL}/media/${manuscript.image_filename}`}
+                  alt={`${manuscript.metadata['Other Names:']} manuscript page`}
+                  maxH="900px"
+                  objectFit="contain"
+                />
+              ) : (
+                <Box 
+                  border="2px dashed" 
+                  borderColor="gray.400" 
+                  borderRadius="md"
+                  height="300px"
+                  width="100%"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="gray.100"
+                  cursor="pointer"
+                  _hover={{ bg: "gray.200" }}
+                  onClick={onOpen}
+                >
+                  <VStack spacing={2}>
+                    <Text color="gray.500" fontSize="lg">No image available</Text>
+                    <Text color="gray.400" fontSize="sm">Click to upload an image</Text>
+                  </VStack>
+                </Box>
+              )}
             </Box>
           </Flex>
         </Box>
       </Box>
+
+      {/* Image Upload Modal */}
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Upload Manuscript Image</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageChange}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+            <Box 
+              border="2px dashed" 
+              borderColor="gray.400" 
+              borderRadius="md"
+              height="300px"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              bg="gray.100"
+              cursor="pointer"
+              _hover={{ bg: "gray.200" }}
+              onClick={handleImageClick}
+              position="relative"
+              overflow="hidden"
+              mb={4}
+            >
+              {selectedImage ? (
+                <Image
+                  src={selectedImage}
+                  alt="Selected manuscript"
+                  objectFit="contain"
+                  maxH="100%"
+                  maxW="100%"
+                />
+              ) : (
+                <VStack spacing={2}>
+                  <Text color="gray.500" fontSize="lg">Upload image</Text>
+                  <Text color="gray.400" fontSize="sm">Click to select a file</Text>
+                </VStack>
+              )}
+            </Box>
+            <Button
+              colorScheme="blue"
+              mr={3}
+              onClick={handleImageUpload}
+              isLoading={isUploading}
+              width="100%"
+              isDisabled={!selectedImage}
+            >
+              Upload Image
+            </Button>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }
