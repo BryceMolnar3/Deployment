@@ -150,7 +150,7 @@ def send_to_mongodb(document_data, mongo_uri="mongodb://127.0.0.1:27017", db_nam
     return result.inserted_id
 
 if __name__ == "__main__":
-    file_path = "test.docx"  # Change this to your filename if needed.
+    file_path = "01.docx"  # Change this to your filename if needed.
     
     try:
         # Extract metadata from the first table.

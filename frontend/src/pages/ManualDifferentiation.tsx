@@ -16,7 +16,6 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
-import { manuscripts, Manuscript } from '../data/manuscripts.ts';
 import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
 
 // Types for API responses and requests
@@ -36,7 +35,31 @@ interface ComparisonResult {
   timestamp: string;
 }
 
-// Function to generate local comparisons for development
+interface Manuscript {
+  _id: string;
+  filename: string;
+  metadata: {
+    'MS ID:': string;
+    'Other Names:': string;
+    'Contents:': string;
+    'Date:': string;
+    'Origin:': string;
+    'Total Folia:': string;
+    'Dimensions:': string;
+    'Materials:': string;
+    'Laod. Folia:': string;
+    'Format Description:': string;
+  };
+  verses: {
+    verse_number: number;
+    verse_text: string;
+  }[];
+}
+
+// API base URL - can be configured based on environment
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+// Function to generate word comparisons from MongoDB data
 function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscript: Manuscript): WordComparison[] {
   const comparisons: WordComparison[] = [];
   
@@ -73,7 +96,7 @@ function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscrip
           word1,
           word2,
           position: i + 1,
-          manuscriptSigla: comparisonManuscript.sigla
+          manuscriptSigla: comparisonManuscript.filename.replace('.docx', '')
         });
       }
     }
@@ -86,25 +109,37 @@ function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscrip
 const manuscriptService = {
   async fetchComparisons(): Promise<WordComparison[]> {
     try {
-      // For development: Generate local comparisons
-      const baseManuscript = manuscripts['01'];
-      const allComparisons: WordComparison[] = [];
+      const response = await fetch(`${API_BASE_URL}/api/documents/`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch manuscripts');
+      }
+      const data = await response.json();
       
-      Object.values(manuscripts).forEach(manuscript => {
-        if (manuscript.sigla !== '01') {
+      // Transform verses from array of tuples to array of objects
+      const manuscripts: Manuscript[] = data.map((manuscript: any) => ({
+        ...manuscript,
+        verses: manuscript.verses.map(([number, text]: [string, string]) => ({
+          verse_number: parseInt(number),
+          verse_text: text
+        }))
+      }));
+
+      // Find base manuscript (01)
+      const baseManuscript = manuscripts.find(m => m.filename === '01.docx');
+      if (!baseManuscript) {
+        throw new Error('Base manuscript (01) not found');
+      }
+
+      // Generate comparisons with all other manuscripts
+      const allComparisons: WordComparison[] = [];
+      manuscripts.forEach(manuscript => {
+        if (manuscript.filename !== '01.docx') {
           const comparisons = generateWordComparisons(baseManuscript, manuscript);
           allComparisons.push(...comparisons);
         }
       });
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
       return allComparisons;
-
-      // TODO: For production, uncomment the following:
-      // const response = await fetch('/api/comparisons');
-      // if (!response.ok) throw new Error('Failed to fetch comparisons');
-      // return await response.json();
     } catch (error) {
       throw new Error('Error fetching comparisons: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
@@ -116,26 +151,19 @@ const manuscriptService = {
     variationType: string;
   }): Promise<ComparisonResult> {
     try {
-      // For development: Mock saving comparison
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return {
-        comparisonId: Math.random().toString(36).substr(2, 9),
-        isSignificant: data.isSignificant,
-        variationType: data.variationType,
-        wordComparison: data.wordComparison,
-        timestamp: new Date().toISOString()
-      };
+      const response = await fetch(`${API_BASE_URL}/api/comparisons/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
 
-      // TODO: For production, uncomment the following:
-      // const response = await fetch('/api/comparisons', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(data),
-      // });
-      // if (!response.ok) throw new Error('Failed to save comparison');
-      // return await response.json();
+      if (!response.ok) {
+        throw new Error('Failed to save comparison');
+      }
+
+      return await response.json();
     } catch (error) {
       throw new Error('Error saving comparison: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
