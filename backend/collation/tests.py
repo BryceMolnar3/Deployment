@@ -1,10 +1,17 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from rest_framework import status
 from rest_framework.test import APIClient
 from pymongo import MongoClient
 from bson import ObjectId
 from .models import Verse, Manuscript
 import json
+from django.urls import reverse
+import base64
+from unittest.mock import patch
+import os
+import tempfile
+from PIL import Image
+import io
 
 class DocumentAPITest(TestCase):
     @classmethod
@@ -103,3 +110,212 @@ class DocumentAPITest(TestCase):
 
         # Pretty print
         print(json.dumps(formatted_collated_data, indent=4))
+
+class PhylogeneticTreeTests(TestCase):
+    @classmethod
+    def setUp(self):
+        """Set up test database with dummy manuscripts."""
+        # Connect to test MongoDB
+        self.client = MongoClient('localhost', 27017)
+        self.db = self.client.test_document_db
+        self.documents = self.db.documents
+        
+        # Clear existing documents
+        self.documents.delete_many({})
+        
+        # Create dummy manuscripts with variations
+        self.manuscript_ids = []
+        
+        # Base text for variations
+        base_text = "In the beginning was the Word, and the Word was with God, and the Word was God."
+        
+        # Create manuscript 1 (base text)
+        ms1_id = self.documents.insert_one({
+            "filename": "manuscript1.txt",
+            "metadata": {"Sigla:": "MS1"},
+            "verses": [
+                ["1:1", base_text],
+                ["1:2", "He was in the beginning with God."],
+                ["1:3", "All things were made through him."]
+            ]
+        }).inserted_id
+        self.manuscript_ids.append(str(ms1_id))
+        
+        # Create manuscript 2 (slight variation)
+        ms2_id = self.documents.insert_one({
+            "filename": "manuscript2.txt",
+            "metadata": {"Sigla:": "MS2"},
+            "verses": [
+                ["1:1", base_text.replace("Word was God", "Word is God")],
+                ["1:2", "He was in the beginning with God."],
+                ["1:3", "All things were created through him."]  # "made" -> "created"
+            ]
+        }).inserted_id
+        self.manuscript_ids.append(str(ms2_id))
+        
+        # Create manuscript 3 (more variations)
+        ms3_id = self.documents.insert_one({
+            "filename": "manuscript3.txt",
+            "metadata": {"Sigla:": "MS3"},
+            "verses": [
+                ["1:1", base_text.replace("Word was with God", "Word remained with God")],  # "was" -> "remained"
+                ["1:2", "In the beginning, he was with God."],  # completely different
+                ["1:3", "All things were made through him."]
+            ]
+        }).inserted_id
+        self.manuscript_ids.append(str(ms3_id))
+        
+        # Create manuscript 4 (similar to MS3)
+        ms4_id = self.documents.insert_one({
+            "filename": "manuscript4.txt",
+            "metadata": {"Sigla:": "MS4"},
+            "verses": [
+                ["1:1", base_text.replace("Word was with God", "Word remained with God")],  # Same as MS3
+                ["1:2", "In the beginning, he was with the Lord."],  # "God" -> "the Lord"
+                ["1:3", "Everything was made through him."]  # "All things" -> "Everything"
+            ]
+        }).inserted_id
+        self.manuscript_ids.append(str(ms4_id))
+        
+        # Create manuscript 5 (missing some verses)
+        ms5_id = self.documents.insert_one({
+            "filename": "manuscript5.txt",
+            "metadata": {"Sigla:": "MS5"},
+            "verses": [
+                ["1:1", base_text],
+                # Missing verse 1:2
+                ["1:3", "All things were made by him."]  # "through" -> "by"
+            ]
+        }).inserted_id
+        self.manuscript_ids.append(str(ms5_id))
+        
+        # Set up test client
+        self.test_client = Client()
+        
+        # Path to override MongoDB in tests
+        self.patcher = patch('collation.views.documents', self.documents)
+        self.mock_db = self.patcher.start()
+        
+        # Also patch the PhylogeneticTreeBuilder to use test DB
+        self.builder_patcher = patch('collation.phylogenetic.PhylogeneticTreeBuilder.__init__', 
+                                     return_value=None)
+        self.mock_builder = self.builder_patcher.start()
+        
+        # Set the db attribute directly
+        from collation.phylogenetic import PhylogeneticTreeBuilder
+        PhylogeneticTreeBuilder.db = self.db
+        PhylogeneticTreeBuilder.documents = self.documents
+        
+    @classmethod
+    def tearDown(self):
+        """Clean up after tests."""
+        # Remove test documents
+        self.documents.delete_many({})
+        
+        # Stop patchers
+        self.patcher.stop()
+        self.builder_patcher.stop()
+        
+        # Drop test database
+        self.client.drop_database('test_document_db')
+
+    def test_phylogenetic_tree_generation(self):
+        """Test that the phylogenetic tree generator produces a valid tree."""
+        # Call the API endpoint
+        response = self.test_client.get(reverse('generate_phylogenetic_tree'))
+        
+        # Check response status
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse JSON response
+        data = json.loads(response.content)
+        
+        # Check that we got tree data
+        self.assertIn('tree_image', data)
+        self.assertIn('manuscript_count', data)
+        
+        # Check that all manuscripts were included
+        self.assertEqual(data['manuscript_count'], len(self.manuscript_ids))
+        
+        # Verify that the image data is valid by trying to decode and open it
+        image_data = base64.b64decode(data['tree_image'])
+        image = Image.open(io.BytesIO(image_data))
+        self.assertIsNotNone(image)
+        
+        # Clean up
+        image.close()
+
+    def test_newick_tree_format(self):
+        """Test generating the tree in Newick format."""
+        # Call the API endpoint with Newick format
+        response = self.test_client.get(
+            reverse('generate_phylogenetic_tree') + '?format=newick'
+        )
+        
+        # Check response status
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse JSON response
+        data = json.loads(response.content)
+        
+        # Check that we got Newick data
+        self.assertIn('newick_tree', data)
+        self.assertIn('manuscript_count', data)
+        
+        # Check that the Newick string is properly formatted (ends with semicolon)
+        self.assertTrue(data['newick_tree'].endswith(';'))
+        
+        # Check that all manuscripts are in the Newick string
+        for i in range(1, 6):
+            self.assertIn(f"MS{i}", data['newick_tree'])
+
+    def test_distance_matrix(self):
+        """Test the distance matrix calculation."""
+        # Add distance_matrix endpoint if it doesn't exist
+        from django.urls import path
+        from collation import views
+        
+        # First check if the endpoint function exists
+        if hasattr(views, 'get_distance_matrix'):
+            # Add URL pattern if not already in urlpatterns
+            from django.urls import get_resolver
+            resolver = get_resolver()
+            if 'distance-matrix' not in [p.pattern.regex.pattern for p in resolver.url_patterns]:
+                from django.urls.resolvers import URLPattern
+                from django.urls.resolvers import RegexPattern
+                resolver.url_patterns.append(
+                    URLPattern(RegexPattern(r'^distance-matrix/$'), 
+                               views.get_distance_matrix, 
+                               name='get_distance_matrix')
+                )
+            
+            # Call the distance matrix API
+            response = self.test_client.get(
+                reverse('get_distance_matrix') + 
+                f'?ms_ids={self.manuscript_ids[0]}&ms_ids={self.manuscript_ids[1]}&ms_ids={self.manuscript_ids[2]}'
+            )
+            
+            # Check response status
+            self.assertEqual(response.status_code, 200)
+            
+            # Parse JSON response
+            data = json.loads(response.content)
+            
+            # Check that we got matrix data
+            self.assertIn('distance_matrix', data)
+            self.assertIn('labels', data)
+            
+            # Check matrix dimensions
+            matrix = data['distance_matrix']
+            self.assertEqual(len(matrix), 3)  # 3x3 matrix for 3 manuscripts
+            self.assertEqual(len(matrix[0]), 3)
+            
+            # Check that diagonal is zero (distance to self)
+            self.assertEqual(matrix[0][0], 0)
+            self.assertEqual(matrix[1][1], 0)
+            self.assertEqual(matrix[2][2], 0)
+            
+            # Check that distances are symmetric
+            self.assertEqual(matrix[0][1], matrix[1][0])
+            self.assertEqual(matrix[0][2], matrix[2][0])
+            self.assertEqual(matrix[1][2], matrix[2][1])
