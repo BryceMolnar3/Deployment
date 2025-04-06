@@ -25,7 +25,7 @@ class PhylogeneticTreeBuilder:
                 doc = self.documents.find_one({"_id": ObjectId(ms_id)})
                 if doc:
                     # Use sigla if available, otherwise use filename or ID
-                    sigla = doc.get('metadata', {}).get('Sigla:') or doc.get('metadata', {}).get('Other Names:')
+                    sigla = doc.get('metadata', {}).get('Sigla:') or doc.get('metadata', {}).get('Other Names:') or doc.get('metadata', {}).get('MS ID:')
                     if not sigla:
                         sigla = doc.get('filename', str(ms_id)[-6:])
                     manuscripts[str(ms_id)] = {

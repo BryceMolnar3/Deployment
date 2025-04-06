@@ -142,7 +142,7 @@ def collate_manuscripts(request):
 def generate_phylogenetic_tree(request):
     """Generate a phylogenetic tree from all available manuscripts."""
     method = request.GET.get('method', 'average')
-    output_format = request.GET.get('format', 'base64')
+    output_format = request.GET.get('format2', 'base64')
     
     try:
         # Get all manuscript IDs from the database

@@ -12,6 +12,8 @@ import os
 import tempfile
 from PIL import Image
 import io
+from urllib.parse import urlencode
+
 
 class DocumentAPITest(TestCase):
     @classmethod
@@ -113,117 +115,84 @@ class DocumentAPITest(TestCase):
 
 class PhylogeneticTreeTests(TestCase):
     @classmethod
-    def setUp(self):
-        """Set up test database with dummy manuscripts."""
-        # Connect to test MongoDB
-        self.client = MongoClient('localhost', 27017)
-        self.db = self.client.test_document_db
-        self.documents = self.db.documents
+    def setUpTestData(cls):
+        """Set up test database with real MongoDB entries"""
+        cls.client = APIClient()
         
-        # Clear existing documents
-        self.documents.delete_many({})
-        
-        # Create dummy manuscripts with variations
-        self.manuscript_ids = []
-        
-        # Base text for variations
+        # Connect to MongoDB
+        cls.client_mongo = MongoClient("mongodb://localhost:27017/") 
+        cls.db = cls.client_mongo["document_db"]  
+        cls.manuscripts_collection = cls.db["documents"]
+        cls.verses_collection = cls.db["verses"]
+        cls.manuscript_ids = []
+
         base_text = "In the beginning was the Word, and the Word was with God, and the Word was God."
-        
-        # Create manuscript 1 (base text)
-        ms1_id = self.documents.insert_one({
-            "filename": "manuscript1.txt",
-            "metadata": {"Sigla:": "MS1"},
-            "verses": [
+
+        variants = [
+            [  # MS1 (base text)
                 ["1:1", base_text],
                 ["1:2", "He was in the beginning with God."],
                 ["1:3", "All things were made through him."]
-            ]
-        }).inserted_id
-        self.manuscript_ids.append(str(ms1_id))
-        
-        # Create manuscript 2 (slight variation)
-        ms2_id = self.documents.insert_one({
-            "filename": "manuscript2.txt",
-            "metadata": {"Sigla:": "MS2"},
-            "verses": [
+            ],
+            [  # MS2
                 ["1:1", base_text.replace("Word was God", "Word is God")],
                 ["1:2", "He was in the beginning with God."],
-                ["1:3", "All things were created through him."]  # "made" -> "created"
-            ]
-        }).inserted_id
-        self.manuscript_ids.append(str(ms2_id))
-        
-        # Create manuscript 3 (more variations)
-        ms3_id = self.documents.insert_one({
-            "filename": "manuscript3.txt",
-            "metadata": {"Sigla:": "MS3"},
-            "verses": [
-                ["1:1", base_text.replace("Word was with God", "Word remained with God")],  # "was" -> "remained"
-                ["1:2", "In the beginning, he was with God."],  # completely different
+                ["1:3", "All things were created through him."]
+            ],
+            [  # MS3
+                ["1:1", base_text.replace("Word was with God", "Word remained with God")],
+                ["1:2", "In the beginning, he was with God."],
                 ["1:3", "All things were made through him."]
-            ]
-        }).inserted_id
-        self.manuscript_ids.append(str(ms3_id))
-        
-        # Create manuscript 4 (similar to MS3)
-        ms4_id = self.documents.insert_one({
-            "filename": "manuscript4.txt",
-            "metadata": {"Sigla:": "MS4"},
-            "verses": [
-                ["1:1", base_text.replace("Word was with God", "Word remained with God")],  # Same as MS3
-                ["1:2", "In the beginning, he was with the Lord."],  # "God" -> "the Lord"
-                ["1:3", "Everything was made through him."]  # "All things" -> "Everything"
-            ]
-        }).inserted_id
-        self.manuscript_ids.append(str(ms4_id))
-        
-        # Create manuscript 5 (missing some verses)
-        ms5_id = self.documents.insert_one({
-            "filename": "manuscript5.txt",
-            "metadata": {"Sigla:": "MS5"},
-            "verses": [
+            ],
+            [  # MS4
+                ["1:1", base_text.replace("Word was with God", "Word remained with God")],
+                ["1:2", "In the beginning, he was with the Lord."],
+                ["1:3", "Everything was made through him."]
+            ],
+            [  # MS5
                 ["1:1", base_text],
-                # Missing verse 1:2
-                ["1:3", "All things were made by him."]  # "through" -> "by"
+                ["1:3", "All things were made by him."]
             ]
-        }).inserted_id
-        self.manuscript_ids.append(str(ms5_id))
-        
-        # Set up test client
-        self.test_client = Client()
-        
-        # Path to override MongoDB in tests
-        self.patcher = patch('collation.views.documents', self.documents)
-        self.mock_db = self.patcher.start()
-        
-        # Also patch the PhylogeneticTreeBuilder to use test DB
-        self.builder_patcher = patch('collation.phylogenetic.PhylogeneticTreeBuilder.__init__', 
-                                     return_value=None)
-        self.mock_builder = self.builder_patcher.start()
-        
-        # Set the db attribute directly
-        from collation.phylogenetic import PhylogeneticTreeBuilder
-        PhylogeneticTreeBuilder.db = self.db
-        PhylogeneticTreeBuilder.documents = self.documents
-        
+        ]
+
+        for i, verses in enumerate(variants, start=1):
+            ms_id = cls.manuscripts_collection.insert_one({
+                "filename": "test2.docx",
+                "metadata": {
+                    "MS ID:": str(i),
+                    "Other Names:": f"MS{i}",
+                    "Contents": "Test Content",
+                    "Date": "900",
+                    "Origin": "Test Origin",
+                    "Total Folia": "100",
+                    "Dimensions": "200x100 mm",
+                    "Materials": "Parchment",
+                    "Laod. Folia": "100v-101v",
+                    "Format Description": "Single Column"
+                },
+                "verses": verses
+            }).inserted_id
+            cls.manuscript_ids.append(ms_id)
+
+            from collation.phylogenetic import PhylogeneticTreeBuilder
+            cls.builder = PhylogeneticTreeBuilder()
+            PhylogeneticTreeBuilder.db = cls.db
+            PhylogeneticTreeBuilder.documents = cls.manuscripts_collection
+
     @classmethod
-    def tearDown(self):
-        """Clean up after tests."""
-        # Remove test documents
-        self.documents.delete_many({})
-        
-        # Stop patchers
-        self.patcher.stop()
-        self.builder_patcher.stop()
-        
-        # Drop test database
-        self.client.drop_database('test_document_db')
+    def tearDownClass(cls):
+        """Clean up test database"""
+        cls.verses_collection.delete_many({})
+        cls.manuscripts_collection.delete_many({})
+        cls.client_mongo.close()
+
+
 
     def test_phylogenetic_tree_generation(self):
         """Test that the phylogenetic tree generator produces a valid tree."""
         # Call the API endpoint
-        response = self.test_client.get(reverse('generate_phylogenetic_tree'))
-        
+        #response = self.client.get(reverse('generate_phylogenetic_tree'))
+        response = self.client.get(f'/api/generate_phylogenetic_tree/')
         # Check response status
         self.assertEqual(response.status_code, 200)
         
@@ -246,11 +215,14 @@ class PhylogeneticTreeTests(TestCase):
         image.close()
 
     def test_newick_tree_format(self):
-        """Test generating the tree in Newick format."""
-        # Call the API endpoint with Newick format
-        response = self.test_client.get(
-            reverse('generate_phylogenetic_tree') + '?format=newick'
-        )
+
+        response = self.client.get('/api/generate_phylogenetic_tree/?format2=newick')
+        self.assertEqual(response.status_code, 200)  # This is what fails now
+        print("Response content:", response.content)
+        data = response.json()
+
+        for i in range(1, 6):
+            self.assertIn(f"MS{i}", data['newick_tree'])
         
         # Check response status
         self.assertEqual(response.status_code, 200)
@@ -290,7 +262,7 @@ class PhylogeneticTreeTests(TestCase):
                 )
             
             # Call the distance matrix API
-            response = self.test_client.get(
+            response = self.client.get(
                 reverse('get_distance_matrix') + 
                 f'?ms_ids={self.manuscript_ids[0]}&ms_ids={self.manuscript_ids[1]}&ms_ids={self.manuscript_ids[2]}'
             )
