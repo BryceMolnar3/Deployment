@@ -5,6 +5,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 from .models import Verse, Manuscript
 import json
+from .collate import extract_differences
 
 class DocumentAPITest(TestCase):
     @classmethod
@@ -54,7 +55,7 @@ class DocumentAPITest(TestCase):
                 "Format Description:": "Single Column"
             },
             "verses": [ 
-                ['1', "The cat is gray."],
+                ['1', "The cat is not gray."],
                 ['2', "This is not another verse."]
             ]
         }).inserted_id
@@ -95,11 +96,7 @@ class DocumentAPITest(TestCase):
 
         # Assert the status code is 200
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         # Parse the response data
         response_data = response.json()
+        print(response_data)
         
-        formatted_collated_data = {key: json.loads(value) for key, value in response_data.items()}
-
-        # Pretty print
-        print(json.dumps(formatted_collated_data, indent=4))

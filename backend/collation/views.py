@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from rest_framework import status
 from django.conf import settings
 from bson import ObjectId
-from .collate import collate_texts
+from .collate import collate_texts, extract_differences
 
 
 client = MongoClient('localhost', 27017)
@@ -133,8 +133,9 @@ def collate_manuscripts(request):
             except Exception as e:
                 print(f"Error collating verse {verse_number}: {e}")  # Debug
                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
-        # Return the collated verses
-        return JsonResponse(collated_results, safe=False)
+
+        # Return the collated verses with only their differences
+        return JsonResponse(extract_differences(collated_results), safe=False)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
