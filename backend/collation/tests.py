@@ -6,9 +6,7 @@ from bson import ObjectId
 from .models import Verse, Manuscript
 import json
 from .collate import extract_differences
-<<<<<<< HEAD
 from pprint import pprint
-=======
 from django.urls import reverse
 import base64
 from unittest.mock import patch
@@ -18,7 +16,6 @@ from PIL import Image
 import io
 from urllib.parse import urlencode
 
->>>>>>> 9ff4573e1886acf145f32717e32f900e88193dc3
 
 #Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur.
 #neque destituit vos quorundam vaniloquentia insinuantim. ut vos avertant a veritate euangelii quod a me praedicatur.
@@ -118,7 +115,6 @@ class DocumentAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Parse the response data
         response_data = response.json()
-<<<<<<< HEAD
         print("Manuscript 1:")
         pprint({
             '1': "The cat is grey.",
@@ -138,7 +134,6 @@ class DocumentAPITest(TestCase):
         for verse_num, differences in response_data.items():
             print("These are the differences for Verse ", verse_num, ":")
             pprint(differences)
-=======
         print(response_data)
 
 class PhylogeneticTreeTests(TestCase):
@@ -146,7 +141,6 @@ class PhylogeneticTreeTests(TestCase):
     def setUpTestData(cls):
         """Set up test database with real MongoDB entries"""
         cls.client = APIClient()
->>>>>>> 9ff4573e1886acf145f32717e32f900e88193dc3
         
         # Connect to MongoDB
         cls.client_mongo = MongoClient("mongodb://localhost:27017/") 
