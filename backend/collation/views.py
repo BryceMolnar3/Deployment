@@ -31,35 +31,6 @@ def add_version(request):
         return Response(serializer.data, status=201)
     return Response(serializer.errors, status=400)
 
-# @api_view(['POST'])
-# def compare_texts(request):
-#     texts = request.data.get("texts", [])
-#     result = collate_texts(texts)
-#     return Response({"collation": result})
-
-# @api_view(['GET'])
-# def get_verses(request):
-#     """Fetch all verses."""
-#     verses = Verse.objects.all()
-#     serializer = VerseSerializer(verses, many=True)
-#     return Response(serializer.data)
-
-# @api_view(['GET'])
-# def get_verse(request, verse_id):
-#     """Fetch a specific verse by ID."""
-#     verse = get_object_or_404(Verse, id=verse_id)
-#     serializer = VerseSerializer(verse)
-#     return Response(serializer.data)
-
-# @api_view(['POST'])
-# def create_verse(request):
-#     """Create a new verse."""
-#     serializer = VerseSerializer(data=request.data)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data, status=status.HTTP_201_CREATED)
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 @api_view(['GET'])
 def get_verses(request, ms_id):
     """Fetch all verses for a specific manuscript."""
@@ -76,8 +47,6 @@ def get_verses(request, ms_id):
     
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-
 
 @api_view(['GET'])
 def get_verse(request, ms_id, verse_number):
@@ -143,16 +112,17 @@ def collate_manuscripts(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
-api_view(['GET'])
+@api_view(['GET'])
 def generate_phylogenetic_tree(request):
     """Generate a phylogenetic tree from all available manuscripts."""
     method = request.GET.get('method', 'average')
-    output_format = request.GET.get('format2', 'base64')
+    output_format = request.GET.get('format', 'base64')
     try:
         # Get all manuscript IDs from the database
         all_manuscripts = list(documents.find({}, {"_id": 1}))
         manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+        
+        print(f"Processing {len(manuscript_ids)} manuscripts: {manuscript_ids[:5]}...")
         
         if len(manuscript_ids) < 3:
             return JsonResponse({"error": "At least three manuscripts are required in the database to build a phylogenetic tree."}, status=400)
@@ -174,6 +144,7 @@ def generate_phylogenetic_tree(request):
                     
                 verse_number = verse[0]
                 verse_text = verse[1]
+                
                 if verse_number not in collated_verses:
                     collated_verses[verse_number] = []
                 
@@ -187,61 +158,52 @@ def generate_phylogenetic_tree(request):
         collated_results = {}
         for verse_number, verse_data in collated_verses.items():
             try:
-                # Only collate if we have multiple manuscripts and differences
+                # Only collate if we have multiple manuscripts
                 if len(verse_data) > 1:
                     # Extract just the text for collation
                     texts = [item["text"] for item in verse_data]
+                    ms_ids_for_verse = [item["ms_id"] for item in verse_data]
                     
                     # Only collate if texts are different
                     if len(set(texts)) > 1:
-                        # Get manuscript IDs for this verse
-                        verse_ms_ids = [item["ms_id"] for item in verse_data]
-                        
-                        # Collate the texts and store result with manuscript IDs
+                        # Perform collation
                         collation_result = collate_texts(texts)
                         if collation_result:
-                            # Store both the collation result and the manuscript IDs that contributed
-                            collated_results[verse_number] = {
-                                "result": collation_result,
-                                "ms_ids": verse_ms_ids
-                            }
+                            collated_results[verse_number] = collation_result
             except Exception as e:
                 print(f"Error collating verse {verse_number}: {e}")
+                
+        print(f"Successfully collated {len(collated_results)} verses with differences")
         
-        print("Processed Collation Results:")
-        for verse_num, result in collated_results.items():
-            print(verse_num, json.dumps(result["result"], indent=2))
-
         # Build the phylogenetic tree
         tree_builder = PhylogeneticTreeBuilder()
-        
-        # Extract just the collation results
-        processed_results = {k: v["result"] for k, v in collated_results.items()}
-
+        manuscripts_info = tree_builder.get_manuscript_info(manuscript_ids)
+        print(f"Retrieved info for {len(manuscripts_info)} manuscripts")
         
         if output_format == 'newick':
-            newick_tree = tree_builder.create_newick_tree(processed_results, manuscript_ids, method=method)
+            newick_tree = tree_builder.create_newick_tree(collated_results, manuscript_ids, method=method)
             return JsonResponse({
                 "newick_tree": newick_tree,
                 "manuscript_count": len(manuscript_ids)
             })
 
         elif output_format == 'base64':
-            tree_image = tree_builder.generate_tree(processed_results, manuscript_ids, method=method, output_format='base64')
+            tree_image = tree_builder.generate_tree(collated_results, manuscript_ids, method=method, output_format='base64')
             return JsonResponse({
                 "tree_image": tree_image,
                 "manuscript_count": len(manuscript_ids)
             })
 
         elif output_format in ['png', 'svg']:
-            tree_image = tree_builder.generate_tree(processed_results, manuscript_ids, method=method, output_format=output_format)
+            tree_image = tree_builder.generate_tree(collated_results, manuscript_ids, method=method, output_format=output_format)
             return HttpResponse(tree_image, content_type=f'image/{output_format}')
 
         else:
             return JsonResponse({"error": f"Unsupported format: {output_format}"}, status=400)
-
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
     
 @api_view(['GET'])

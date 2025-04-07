@@ -27,7 +27,16 @@ class PhylogeneticTreeBuilder:
                 if doc:
                     sigla = doc.get('metadata', {}).get('Sigla:') or doc.get('metadata', {}).get('Other Names:') or doc.get('metadata', {}).get('MS ID:')
                     if not sigla:
-                        sigla = doc.get('filename', str(ms_id)[-6:])
+                        filename = doc.get('filename', str(ms_id)[-6:])
+                        # Extract a shorter name if possible
+                        if filename:
+                            parts = filename.split('/')
+                            short_name = parts[-1]
+                            if len(short_name) > 15:  # If filename is too long
+                                short_name = short_name[:15] + "..."
+                            sigla = short_name
+                        else:
+                            sigla = f"MS-{str(ms_id)[-6:]}"
                     manuscripts[str(ms_id)] = {
                         'sigla': sigla,
                         'ms_id': str(ms_id)
@@ -49,58 +58,116 @@ class PhylogeneticTreeBuilder:
 
         for verse_number, collation_result in collation_data.items():
             try:
+                # Handle string JSON
                 if isinstance(collation_result, str):
-                    collation_result = json.loads(collation_result)
-
-                if 'witnesses' not in collation_result:
+                    try:
+                        collation_result = json.loads(collation_result)
+                    except json.JSONDecodeError:
+                        print(f"Could not parse JSON for verse {verse_number}")
+                        continue
+                
+                # Handle potential nesting in the data structure
+                actual_result = collation_result
+                if isinstance(collation_result, dict) and "result" in collation_result:
+                    actual_result = collation_result["result"]
+                
+                # Check if we have witnesses
+                if not isinstance(actual_result, dict) or 'witnesses' not in actual_result:
                     continue
 
-                witnesses = collation_result['witnesses']
-                alignment_table = collation_result.get('table', [])
+                witnesses = actual_result['witnesses']
+                alignment_table = actual_result.get('table', [])
                 if not alignment_table:
                     continue
 
-                for i, ms_id1 in enumerate(ms_ids):
-                    for j in range(i+1, len(ms_ids)):
+                # Calculate difference matrix for this verse
+                for i in range(n):
+                    ms_id1 = ms_ids[i]
+                    # Find witness index for this manuscript
+                    w1_idx = None
+                    for w_idx, witness in enumerate(witnesses):
+                        if witness.endswith(f"w{i+1}"):  # Match the witness pattern used in collate.py
+                            w1_idx = w_idx
+                            break
+                    
+                    if w1_idx is None:
+                        continue
+                    
+                    for j in range(i+1, n):
                         ms_id2 = ms_ids[j]
-                        w1_idx = i if i < len(witnesses) else -1
-                        w2_idx = j if j < len(witnesses) else -1
-
-                        if w1_idx >= 0 and w2_idx >= 0:
-                            differences = 0
-                            total_tokens = 0
-
-                            for row in alignment_table:
-                                if w1_idx < len(row) and w2_idx < len(row):
-                                    w1_token = row[w1_idx]
-                                    w2_token = row[w2_idx]
-
-                                    if w1_token is not None and w2_token is not None:
-                                        if w1_token != w2_token:
+                        # Find witness index for second manuscript
+                        w2_idx = None
+                        for w_idx, witness in enumerate(witnesses):
+                            if witness.endswith(f"w{j+1}"):  # Match the witness pattern
+                                w2_idx = w_idx
+                                break
+                        
+                        if w2_idx is None:
+                            continue
+                        
+                        differences = 0
+                        total_tokens = 0
+                        
+                        for column in alignment_table:
+                            # Ensure we have enough cells in this column
+                            if w1_idx < len(column) and w2_idx < len(column):
+                                w1_token = column[w1_idx]
+                                w2_token = column[w2_idx]
+                                
+                                # Check if tokens exist and are different
+                                if w1_token is not None and w2_token is not None:
+                                    # Compare normalized tokens
+                                    if isinstance(w1_token, dict) and isinstance(w2_token, dict):
+                                        w1_norm = w1_token.get('n', w1_token.get('t', ''))
+                                        w2_norm = w2_token.get('n', w2_token.get('t', ''))
+                                        if w1_norm != w2_norm:
                                             differences += 1
-                                        total_tokens += 1
-
-                            if total_tokens > 0:
-                                distance = differences / total_tokens
-                                distance_matrix[i, j] += distance
-                                distance_matrix[j, i] += distance
-                                comparison_counts[i, j] += 1
-                                comparison_counts[j, i] += 1
+                                    # If tokens are not dicts, compare directly
+                                    elif w1_token != w2_token:
+                                        differences += 1
+                                    
+                                    total_tokens += 1
+                        
+                        # Only record difference if we had tokens to compare
+                        if total_tokens > 0:
+                            distance = differences / total_tokens
+                            distance_matrix[i, j] += distance
+                            distance_matrix[j, i] += distance
+                            comparison_counts[i, j] += 1
+                            comparison_counts[j, i] += 1
+            
             except Exception as e:
                 print(f"Error processing verse {verse_number}: {e}")
+                import traceback
+                traceback.print_exc()
 
+        # Calculate average distances
         with np.errstate(divide='ignore', invalid='ignore'):
-            distance_matrix = np.divide(distance_matrix, comparison_counts, out=np.zeros_like(distance_matrix), where=comparison_counts!=0)
+            distance_matrix = np.divide(distance_matrix, comparison_counts, 
+                                      out=np.zeros_like(distance_matrix), 
+                                      where=comparison_counts!=0)
 
+        # Handle manuscripts with no comparisons
         mask = comparison_counts == 0
         if np.any(mask):
             valid_distances = distance_matrix[~mask & ~np.eye(n, dtype=bool)]
             if len(valid_distances) > 0:
                 avg_distance = np.mean(valid_distances)
                 distance_matrix[mask] = avg_distance
+            else:
+                # If no valid distances, use a default value
+                distance_matrix[mask] = 0.5
 
+        # Ensure diagonal is zero
         np.fill_diagonal(distance_matrix, 0)
+        
+        # Get labels for the matrix
         labels = [manuscripts[ms_id]['sigla'] for ms_id in ms_ids]
+        
+        # Debug output
+        print(f"Distance matrix shape: {distance_matrix.shape}")
+        print(f"Labels ({len(labels)}): {labels}")
+        
         return distance_matrix, labels
 
     def parse_collation_results(self, collation_results):
@@ -124,26 +191,50 @@ class PhylogeneticTreeBuilder:
 
         parsed_results = self.parse_collation_results(collation_results)
         distance_matrix, labels = self.calculate_distance_matrix(parsed_results, manuscripts)
-        condensed_dist = squareform(distance_matrix)
-        linked = linkage(condensed_dist, method=method)
-
+        
+        # Ensure the distance matrix has valid values
+        if np.isnan(distance_matrix).any() or np.isinf(distance_matrix).any():
+            print("Warning: Distance matrix contains NaN or infinite values. Replacing with zeros.")
+            distance_matrix = np.nan_to_num(distance_matrix)
+        
+        # Convert the redundant distance matrix to condensed form
+        try:
+            condensed_dist = squareform(distance_matrix)
+        except ValueError as e:
+            print(f"Error in squareform: {e}")
+            print(f"Distance matrix: {distance_matrix}")
+            raise
+        
+        # Perform hierarchical clustering
+        try:
+            linked = linkage(condensed_dist, method=method)
+        except Exception as e:
+            print(f"Error in linkage: {e}")
+            raise
+        
+        # Generate figure
         fig_width = max(10, len(labels) * 0.5)
         fig_height = max(7, len(labels) * 0.3)
         plt.figure(figsize=(fig_width, fig_height))
 
-        dendrogram(
-            linked,
-            orientation='right',
-            labels=labels,
-            distance_sort='descending',
-            show_leaf_counts=True
-        )
-        plt.title(f'Manuscript Relationship Tree ({len(labels)} manuscripts)')
-        plt.xlabel('Distance')
-        plt.tight_layout()
+        try:
+            dendrogram(
+                linked,
+                orientation='right',
+                labels=labels,
+                distance_sort='descending',
+                show_leaf_counts=True
+            )
+            plt.title(f'Manuscript Relationship Tree ({len(labels)} manuscripts)')
+            plt.xlabel('Distance')
+            plt.tight_layout()
+        except Exception as e:
+            print(f"Error in dendrogram generation: {e}")
+            raise
 
+        # Save figure to buffer
         buffer = BytesIO()
-        plt.savefig(buffer, format=output_format, dpi=150, bbox_inches='tight')
+        plt.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
         plt.close()
         buffer.seek(0)
 
@@ -161,12 +252,19 @@ class PhylogeneticTreeBuilder:
 
         parsed_results = self.parse_collation_results(collation_results)
         distance_matrix, labels = self.calculate_distance_matrix(parsed_results, manuscripts)
+        
+        # Handle invalid values
+        distance_matrix = np.nan_to_num(distance_matrix)
+        
         condensed_dist = squareform(distance_matrix)
         linked = linkage(condensed_dist, method=method)
 
         def to_newick(node, labels, Z, n):
             if node < n:
-                return labels[node]
+                # Convert labels to safe labels for Newick format
+                safe_label = str(labels[node]).replace('(', '_').replace(')', '_')
+                safe_label = safe_label.replace(',', '_').replace(':', '_').replace(';', '_')
+                return safe_label
             else:
                 node_idx = int(node - n)
                 left = int(Z[node_idx, 0])
