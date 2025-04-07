@@ -2,6 +2,7 @@ import re
 import docx
 from pymongo import MongoClient
 import nltk
+import gridfs
 
 def extract_metadata(doc_path):
     """
@@ -145,12 +146,26 @@ def send_to_mongodb(document_data, mongo_uri="mongodb://127.0.0.1:27017", db_nam
     """
     client = MongoClient(mongo_uri)
     db = client[db_name]
-    collection = db[collection_name]
-    result = collection.insert_one(document_data)
+    fs = gridfs.GridFS(db)
+
+    # Store the image and get its file ID
+    with open(image_path, "rb") as f:
+        image_id = fs.put(f, filename=image_path.split("/")[-1])
+    
+    # Add the image ID to your document
+    document_data["image_file_id"] = image_id
+
+    # Insert the updated document
+    result = db[collection_name].insert_one(document_data)
     return result.inserted_id
+    
+    # collection = db[collection_name]
+    # result = collection.insert_one(document_data)
+    # return result.inserted_id
 
 if __name__ == "__main__":
     file_path = "test.docx"  # Change this to your filename if needed.
+    image_path = "manuscript.png"
     
     try:
         # Extract metadata from the first table.

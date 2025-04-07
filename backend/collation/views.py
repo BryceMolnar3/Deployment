@@ -31,35 +31,6 @@ def add_version(request):
         return Response(serializer.data, status=201)
     return Response(serializer.errors, status=400)
 
-# @api_view(['POST'])
-# def compare_texts(request):
-#     texts = request.data.get("texts", [])
-#     result = collate_texts(texts)
-#     return Response({"collation": result})
-
-# @api_view(['GET'])
-# def get_verses(request):
-#     """Fetch all verses."""
-#     verses = Verse.objects.all()
-#     serializer = VerseSerializer(verses, many=True)
-#     return Response(serializer.data)
-
-# @api_view(['GET'])
-# def get_verse(request, verse_id):
-#     """Fetch a specific verse by ID."""
-#     verse = get_object_or_404(Verse, id=verse_id)
-#     serializer = VerseSerializer(verse)
-#     return Response(serializer.data)
-
-# @api_view(['POST'])
-# def create_verse(request):
-#     """Create a new verse."""
-#     serializer = VerseSerializer(data=request.data)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data, status=status.HTTP_201_CREATED)
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 @api_view(['GET'])
 def get_verses(request, ms_id):
     """Fetch all verses for a specific manuscript."""

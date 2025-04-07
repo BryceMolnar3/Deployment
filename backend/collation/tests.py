@@ -6,7 +6,10 @@ from bson import ObjectId
 from .models import Verse, Manuscript
 import json
 from .collate import extract_differences
+from pprint import pprint
 
+#Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur.
+#neque destituit vos quorundam vaniloquentia insinuantim. ut vos avertant a veritate euangelii quod a me praedicatur.
 class DocumentAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -18,7 +21,6 @@ class DocumentAPITest(TestCase):
         cls.db = cls.client_mongo["document_db"]  
         cls.manuscripts_collection = cls.db["documents"]
         cls.verses_collection = cls.db["verses"]
-
         # Insert a test manuscript
         cls.manuscript_id = cls.manuscripts_collection.insert_one({
             "filename": "test.docx",
@@ -36,7 +38,9 @@ class DocumentAPITest(TestCase):
             },
             "verses": [ 
                 ['1', "The cat is grey."],
-                ['2', "This is another verse."]
+                ['2', "This is a verse"],
+                ['3', "Multiple differences are here."],
+                ['4', "Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur."]
             ]
         }).inserted_id
 
@@ -55,8 +59,10 @@ class DocumentAPITest(TestCase):
                 "Format Description:": "Single Column"
             },
             "verses": [ 
-                ['1', "The cat is not gray."],
-                ['2', "This is not another verse."]
+                ['1', "The cat is gray."],
+                ['2', "This is an extra verse"],
+                ['3', "There's multiple differences here"],
+                ['4', "neque destituit vos quorundam vaniloquentia insinuantim. ut vos avertant a veritate euangelii quod a me praedicatur."]
             ]
         }).inserted_id
 
@@ -79,7 +85,9 @@ class DocumentAPITest(TestCase):
         self.assertGreater(len(verses), 0)
         
         self.assertEqual(verses[0], {'verse_number':'1', 'verse_text': "The cat is grey."})
-        self.assertEqual(verses[1], {'verse_number':'2', 'verse_text': "This is another verse."})
+        self.assertEqual(verses[1], {'verse_number':'2', 'verse_text': "This is a verse"})
+        self.assertEqual(verses[2], {'verse_number':'3', 'verse_text': "Multiple differences are here."})
+        self.assertEqual(verses[3], {'verse_number':'4', 'verse_text': "Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur."})
         
     def test_get_verse(self):
         # Use the actual verse ID created in setUp or test data
@@ -98,5 +106,23 @@ class DocumentAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Parse the response data
         response_data = response.json()
-        print(response_data)
+        print("Manuscript 1:")
+        pprint({
+            '1': "The cat is grey.",
+            '2': "This is a verse",
+            '3': "Multiple differences are here.",
+            '4': "Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur."
+        })
+
+        print("Manuscript 2:")
+        pprint({
+            '1': "The cat is gray.",
+            '2': "This is an extra verse",
+            '3': "There's multiple differences here",
+            '4': "Neque destituit vos quorundam vaniloquentia insinuantim. ut vos avertant a veritate euangelii quod a me praedicatur."
+        })
+        print('')
+        for verse_num, differences in response_data.items():
+            print("These are the differences for Verse ", verse_num, ":")
+            pprint(differences)
         
