@@ -11,7 +11,7 @@ from django.conf import settings
 from bson import ObjectId
 from .collate import collate_texts, extract_differences
 from .phylogenetic import PhylogeneticTreeBuilder
-
+import json
 
 client = MongoClient('localhost', 27017)
 db = client.document_db
@@ -102,50 +102,53 @@ def get_verse(request, ms_id, verse_number):
 
 @api_view(['GET'])
 def collate_manuscripts(request):
-    """Collate verses from multiple manuscripts."""
-    manuscript_ids = request.GET.getlist('ms_ids')  # Get list of manuscript IDs from query parameters
-
-    if len(manuscript_ids) < 2:
-        return JsonResponse({"error": "At least two manuscript IDs are required for comparison."}, status=400)
-
-    collated_verses = {}
-
+    """Collate verses from all available manuscripts in the database."""
     try:
+        # Get all manuscript IDs
+        all_manuscripts = list(documents.find({}, {"_id": 1}))
+        manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+
+        if len(manuscript_ids) < 2:
+            return JsonResponse({"error": "At least two manuscripts are required for comparison."}, status=400)
+
+        collated_verses = {}
+
         # Fetch verses from each manuscript
         for ms_id in manuscript_ids:
             manuscript = documents.find_one({"_id": ObjectId(ms_id)})
-            
             if not manuscript:
-                return JsonResponse({"error": f"Manuscript {ms_id} not found"}, status=404)
-            
+                continue  # Skip if not found
+
             verses = manuscript.get("verses", [])
             for verse in verses:
+                if len(verse) < 2:
+                    continue
                 verse_number = verse[0]
                 verse_text = verse[1]
                 if verse_number not in collated_verses:
                     collated_verses[verse_number] = []
                 collated_verses[verse_number].append(verse_text)
 
+        # Collate each verse
         collated_results = {}
         for verse_number, texts in collated_verses.items():
             try:
                 collated_results[verse_number] = collate_texts(texts)
             except Exception as e:
-                print(f"Error collating verse {verse_number}: {e}")  # Debug
+                print(f"Error collating verse {verse_number}: {e}")
                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
 
-        # Return the collated verses with only their differences
         return JsonResponse(extract_differences(collated_results), safe=False)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
 
 api_view(['GET'])
 def generate_phylogenetic_tree(request):
     """Generate a phylogenetic tree from all available manuscripts."""
     method = request.GET.get('method', 'average')
     output_format = request.GET.get('format2', 'base64')
-    
     try:
         # Get all manuscript IDs from the database
         all_manuscripts = list(documents.find({}, {"_id": 1}))
@@ -205,33 +208,38 @@ def generate_phylogenetic_tree(request):
             except Exception as e:
                 print(f"Error collating verse {verse_number}: {e}")
         
+        print("Processed Collation Results:")
+        for verse_num, result in collated_results.items():
+            print(verse_num, json.dumps(result["result"], indent=2))
+
         # Build the phylogenetic tree
         tree_builder = PhylogeneticTreeBuilder()
         
         # Extract just the collation results
         processed_results = {k: v["result"] for k, v in collated_results.items()}
+
         
         if output_format == 'newick':
-            # Generate Newick format tree
             newick_tree = tree_builder.create_newick_tree(processed_results, manuscript_ids, method=method)
             return JsonResponse({
                 "newick_tree": newick_tree,
                 "manuscript_count": len(manuscript_ids)
             })
-        else:
-            # Generate tree visualization
+
+        elif output_format == 'base64':
+            tree_image = tree_builder.generate_tree(processed_results, manuscript_ids, method=method, output_format='base64')
+            return JsonResponse({
+                "tree_image": tree_image,
+                "manuscript_count": len(manuscript_ids)
+            })
+
+        elif output_format in ['png', 'svg']:
             tree_image = tree_builder.generate_tree(processed_results, manuscript_ids, method=method, output_format=output_format)
-            
-            if output_format == 'base64':
-                return JsonResponse({
-                    "tree_image": tree_image,
-                    "manuscript_count": len(manuscript_ids)
-                })
-            else:
-                # Return as downloadable file
-                response = HttpResponse(tree_image, content_type=f'image/{output_format}')
-                response['Content-Disposition'] = f'attachment; filename="phylogenetic_tree.{output_format}"'
-                return response
+            return HttpResponse(tree_image, content_type=f'image/{output_format}')
+
+        else:
+            return JsonResponse({"error": f"Unsupported format: {output_format}"}, status=400)
+
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

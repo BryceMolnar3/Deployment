@@ -208,7 +208,7 @@ class PhylogeneticTreeTests(TestCase):
         self.assertIsNotNone(image)
         
         # Clean up
-        image.close()
+        #image.close()
 
     def test_newick_tree_format(self):
 
