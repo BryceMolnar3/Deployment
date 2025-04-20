@@ -1,13 +1,28 @@
 import collatex
 import json
+import re
 
+
+def clean_verse_text(text):
+    """Clean text."""
+    #take away parantheses
+    text = re.sub(r"[()]", "", text)
+
+    #remove punctuation, keeps latin text
+    text = re.sub(r"[^\w\s\u0370-\u03FF]", "", text)
+
+    #lowercase and normalize whitespace
+    text = text.lower()
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
 
 def collate_texts(texts):
     """Collate two manuscripts and create an alignment table."""
     alignment_table = collatex.Collation()
     
     for i, text in enumerate(texts):
-        alignment_table.add_plain_witness(f"w{i+1}", text)
+        alignment_table.add_plain_witness(f"w{i+1}", clean_verse_text(text))
 
     return collatex.collate(alignment_table, segmentation=False, near_match=True, output="json")
 

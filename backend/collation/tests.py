@@ -49,7 +49,7 @@ class DocumentAPITest(TestCase):
                 ['1', "The cat is grey."],
                 ['2', "This is a verse"],
                 ['3', "Multiple differences are here."],
-                ['4', "Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur."]
+                ['4', "Paulus apostolus non ab hominib(us) neq(ue) per homin(ibus) sed per ih(esu)m χρ(istu)m fratrib(us) qui sunt laodice"]
             ]
         }).inserted_id
 
@@ -71,7 +71,7 @@ class DocumentAPITest(TestCase):
                 ['1', "The cat is gray."],
                 ['2', "This is an extra verse"],
                 ['3', "There's multiple differences here"],
-                ['4', "neque destituit vos quorundam vaniloquentia insinuantim. ut vos avertant a veritate euangelii quod a me praedicatur."]
+                ['4', "Paulus ap(os)t(olu)s n(on) ab ho(min)ib(us). n(eque); p(er) ho(m)i(n)em s(ed); p(er) ih(esu)m χρ(istu)m fr(atr)ib(us). q(ui) s(unt) laodicie."]
             ]
         }).inserted_id
 
@@ -96,7 +96,7 @@ class DocumentAPITest(TestCase):
         self.assertEqual(verses[0], {'verse_number':'1', 'verse_text': "The cat is grey."})
         self.assertEqual(verses[1], {'verse_number':'2', 'verse_text': "This is a verse"})
         self.assertEqual(verses[2], {'verse_number':'3', 'verse_text': "Multiple differences are here."})
-        self.assertEqual(verses[3], {'verse_number':'4', 'verse_text': "Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur."})
+        self.assertEqual(verses[3], {'verse_number':'4', 'verse_text': "Paulus apostolus non ab hominib(us) neq(ue) per homin(ibus) sed per ih(esu)m χρ(istu)m fratrib(us) qui sunt laodice"})
         
     def test_get_verse(self):
         # Use the actual verse ID created in setUp or test data
@@ -120,7 +120,7 @@ class DocumentAPITest(TestCase):
             '1': "The cat is grey.",
             '2': "This is a verse",
             '3': "Multiple differences are here.",
-            '4': "Neque destituant vos quorundam vaniloquia insinuantium. Ut vis evertant a veritate euangelii quod a me praedicatur."
+            '4': "Paulus apostolus non ab hominib(us) neq(ue) per homin(ibus) sed per ih(esu)m χρ(istu)m fratrib(us) qui sunt laodice"
         })
 
         print("Manuscript 2:")
@@ -128,7 +128,7 @@ class DocumentAPITest(TestCase):
             '1': "The cat is gray.",
             '2': "This is an extra verse",
             '3': "There's multiple differences here",
-            '4': "Neque destituit vos quorundam vaniloquentia insinuantim. ut vos avertant a veritate euangelii quod a me praedicatur."
+            '4': "Paulus ap(os)t(olu)s n(on) ab ho(min)ib(us). n(eque); p(er) ho(m)i(n)em s(ed); p(er) ih(esu)m χρ(istu)m fr(atr)ib(us). q(ui) s(unt) laodicie."
         })
         print('')
         for verse_num, differences in response_data.items():
