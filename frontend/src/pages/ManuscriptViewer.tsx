@@ -96,15 +96,7 @@ function ManuscriptViewer() {
         }
 
         const data = await response.json();
-        // Transform verses from array of tuples to array of objects
-        const transformedData = {
-          ...data,
-          verses: data.verses.map(([number, text]: [string, string]) => ({
-            verse_number: parseInt(number),
-            verse_text: text
-          }))
-        };
-        setManuscript(transformedData);
+        setManuscript(data);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An error occurred';
         setError(errorMessage);
@@ -289,7 +281,8 @@ function ManuscriptViewer() {
     }
   };
 
-  const handleRemoveVerse = (index: number) => {
+  const handleRemoveVerse = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation(); // Prevent event bubbling
     if (editedManuscript) {
       const updatedVerses = editedManuscript.verses
         .filter((_, i) => i !== index)
@@ -310,7 +303,7 @@ function ManuscriptViewer() {
 
     try {
       setIsSaving(true);
-      const response = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update`, {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-manuscript`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -319,7 +312,8 @@ function ManuscriptViewer() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update manuscript');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update manuscript');
       }
 
       const updatedManuscript = await response.json();
@@ -717,7 +711,7 @@ function ManuscriptViewer() {
                                     size="sm"
                                     colorScheme="red"
                                     variant="ghost"
-                                    onClick={() => handleRemoveVerse(index)}
+                                    onClick={(e) => handleRemoveVerse(e, index)}
                                   >
                                     Remove
                                   </Button>

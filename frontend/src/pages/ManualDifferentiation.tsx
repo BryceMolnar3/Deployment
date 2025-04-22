@@ -115,24 +115,15 @@ const manuscriptService = {
       }
       const data = await response.json();
       
-      // Transform verses from array of tuples to array of objects
-      const manuscripts: Manuscript[] = data.map((manuscript: any) => ({
-        ...manuscript,
-        verses: manuscript.verses.map(([number, text]: [string, string]) => ({
-          verse_number: parseInt(number),
-          verse_text: text
-        }))
-      }));
-
       // Find base manuscript (01)
-      const baseManuscript = manuscripts.find(m => m.filename === '01.docx');
+      const baseManuscript = data.find((m: Manuscript) => m.filename === '01.docx');
       if (!baseManuscript) {
         throw new Error('Base manuscript (01) not found');
       }
 
       // Generate comparisons with all other manuscripts
       const allComparisons: WordComparison[] = [];
-      manuscripts.forEach(manuscript => {
+      data.forEach((manuscript: Manuscript) => {
         if (manuscript.filename !== '01.docx') {
           const comparisons = generateWordComparisons(baseManuscript, manuscript);
           allComparisons.push(...comparisons);

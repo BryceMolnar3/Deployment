@@ -158,7 +158,7 @@ const manuscriptService = {
         throw new Error(`Failed to fetch manuscripts: ${errorText}`);
       }
       const data = await response.json();
-      return data.map(convertManuscript);
+      return data;
     } catch (error) {
       console.error('Error fetching manuscripts:', error);
       throw error;
@@ -173,7 +173,7 @@ const manuscriptService = {
         throw new Error(`Failed to search manuscripts: ${errorText}`);
       }
       const data = await response.json();
-      return data.map(convertManuscript);
+      return data;
     } catch (error) {
       console.error('Error searching manuscripts:', error);
       throw error;
