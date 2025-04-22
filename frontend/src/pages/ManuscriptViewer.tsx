@@ -84,36 +84,45 @@ function ManuscriptViewer() {
 
   useEffect(() => {
     async function fetchManuscript() {
-      if (!sigla) return;
-      
       try {
         setIsLoading(true);
         setError(null);
         const response = await fetch(`${API_BASE_URL}/api/documents/${sigla}.docx`);
-        
         if (!response.ok) {
           throw new Error('Failed to fetch manuscript');
         }
-
         const data = await response.json();
-        setManuscript(data);
+
+        // Transform verses to ensure consistent format
+        const transformedData = {
+          ...data,
+          verses: data.verses.map((verse: any) => {
+            // If verse is a tuple [number, text]
+            if (Array.isArray(verse)) {
+              return {
+                verse_number: parseInt(verse[0]),
+                verse_text: verse[1]
+              };
+            }
+            // If verse is already an object {verse_number, verse_text}
+            return verse;
+          })
+        };
+
+        setManuscript(transformedData);
+        setEditedManuscript(transformedData);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-        setError(errorMessage);
-        toast({
-          title: 'Error loading manuscript',
-          description: errorMessage,
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
+        console.error('Error fetching manuscript:', error);
+        setError(error instanceof Error ? error.message : 'Failed to fetch manuscript');
       } finally {
         setIsLoading(false);
       }
     }
 
-    fetchManuscript();
-  }, [sigla, toast]);
+    if (sigla) {
+      fetchManuscript();
+    }
+  }, [sigla]);
 
   function handleImageClick() {
     if (fileInputRef.current) {
