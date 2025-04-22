@@ -239,3 +239,43 @@ def update_document(request, filename):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+@csrf_exempt
+@require_http_methods(["PUT"])
+def update_manuscript(request, filename):
+    try:
+        # Get the document data from the request body
+        document_data = json.loads(request.body)
+        
+        # Find the existing document
+        existing_doc = documents.find_one({'filename': filename})
+        if not existing_doc:
+            return JsonResponse({'error': 'Document not found'}, status=404)
+        
+        # Validate verses data
+        if 'verses' in document_data:
+            # Ensure verses are properly formatted
+            for verse in document_data['verses']:
+                if not isinstance(verse.get('verse_number'), int):
+                    return JsonResponse({'error': 'Invalid verse number format'}, status=400)
+                if not isinstance(verse.get('verse_text'), str):
+                    return JsonResponse({'error': 'Invalid verse text format'}, status=400)
+        
+        # Update the document
+        result = documents.update_one(
+            {'filename': filename},
+            {'$set': document_data}
+        )
+        
+        if result.modified_count == 0:
+            return JsonResponse({'error': 'No changes made to document'}, status=400)
+        
+        # Get the updated document
+        updated_document = documents.find_one({'filename': filename})
+        updated_document['_id'] = str(updated_document['_id'])
+        
+        return JsonResponse(updated_document)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+

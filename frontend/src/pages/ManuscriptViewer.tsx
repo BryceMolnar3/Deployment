@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Box, 
   Flex, 
@@ -16,10 +16,16 @@ import {
   ModalHeader,
   ModalBody,
   ModalCloseButton,
+  Input,
+  FormControl,
+  FormLabel,
+  Textarea,
+  IconButton,
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
+import { DragHandleIcon, EditIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 
 // API base URL - can be configured based on environment
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
@@ -57,7 +63,18 @@ function ManuscriptViewer() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const [editedManuscript, setEditedManuscript] = useState<Manuscript | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const toast = useToast();
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [editingVerseIndex, setEditingVerseIndex] = useState<number | null>(null);
+  const [editingVerseText, setEditingVerseText] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const verseHeight = useRef<number>(0);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Theme-based colors
   const boxBg = settings.theme === 'dark' ? 'gray.800' : 'white';
@@ -173,6 +190,189 @@ function ManuscriptViewer() {
     }
   }
 
+  const handleEditClick = () => {
+    if (manuscript) {
+      setEditedManuscript({...manuscript});
+      onEditOpen();
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    if (editedManuscript) {
+      setEditedManuscript({
+        ...editedManuscript,
+        metadata: {
+          ...editedManuscript.metadata,
+          [field]: value
+        }
+      });
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDraggedIndex(index);
+    (e.currentTarget as HTMLDivElement).style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    (e.currentTarget as HTMLDivElement).style.opacity = '1';
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || !editedManuscript || draggedIndex === dropIndex) return;
+
+    const verses = [...editedManuscript.verses];
+    const [movedVerse] = verses.splice(draggedIndex, 1);
+    verses.splice(dropIndex, 0, movedVerse);
+
+    // Update verse numbers
+    const updatedVerses = verses.map((verse, index) => ({
+      ...verse,
+      verse_number: index + 1
+    }));
+
+    setEditedManuscript({
+      ...editedManuscript,
+      verses: updatedVerses
+    });
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const getVerseStyle = (index: number) => {
+    if (index === draggedIndex) {
+      return { opacity: 0.4 };
+    }
+
+    if (index === dragOverIndex) {
+      return { 
+        borderTop: '2px solid #4299E1',
+        marginTop: '-1px',
+        backgroundColor: '#EBF8FF'
+      };
+    }
+
+    return {};
+  };
+
+  const handleAddVerse = () => {
+    if (editedManuscript) {
+      const verseText = prompt('Enter the verse text:');
+      if (verseText?.trim()) {
+        const lastVerseNumber = editedManuscript.verses.length > 0 
+          ? editedManuscript.verses[editedManuscript.verses.length - 1].verse_number 
+          : 0;
+
+        setEditedManuscript({
+          ...editedManuscript,
+          verses: [
+            ...editedManuscript.verses,
+            { 
+              verse_number: lastVerseNumber + 1,
+              verse_text: verseText.trim()
+            }
+          ]
+        });
+      }
+    }
+  };
+
+  const handleRemoveVerse = (index: number) => {
+    if (editedManuscript) {
+      const updatedVerses = editedManuscript.verses
+        .filter((_, i) => i !== index)
+        .map((verse, i) => ({
+          ...verse,
+          verse_number: i + 1
+        }));
+
+      setEditedManuscript({
+        ...editedManuscript,
+        verses: updatedVerses
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    if (!editedManuscript) return;
+
+    try {
+      setIsSaving(true);
+      const response = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editedManuscript)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update manuscript');
+      }
+
+      const updatedManuscript = await response.json();
+      setManuscript(updatedManuscript);
+      onEditClose();
+      
+      toast({
+        title: 'Manuscript updated successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error updating manuscript',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const startEditingVerse = (index: number) => {
+    setEditingVerseIndex(index);
+    setEditingVerseText(editedManuscript?.verses[index].verse_text || '');
+  };
+
+  const cancelEditingVerse = () => {
+    setEditingVerseIndex(null);
+    setEditingVerseText('');
+  };
+
+  const saveVerseEdit = () => {
+    if (editedManuscript && editingVerseIndex !== null) {
+      const updatedVerses = [...editedManuscript.verses];
+      updatedVerses[editingVerseIndex] = {
+        ...updatedVerses[editingVerseIndex],
+        verse_text: editingVerseText.trim()
+      };
+
+      setEditedManuscript({
+        ...editedManuscript,
+        verses: updatedVerses
+      });
+
+      setEditingVerseIndex(null);
+      setEditingVerseText('');
+    }
+  };
+
   if (isLoading) {
     return (
       <Box>
@@ -200,7 +400,10 @@ function ManuscriptViewer() {
       <NavigationBar />
       <Box>
         <Box bg="#08004F" py={8} px={6}>
-          <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manuscript View</Heading>
+          <Flex justify="space-between" align="center">
+            <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manuscript View</Heading>
+            <Button colorScheme="blue" onClick={handleEditClick}>Edit Manuscript</Button>
+          </Flex>
         </Box>
 
         <Box ml={8} p={6}>
@@ -371,6 +574,174 @@ function ManuscriptViewer() {
             >
               Upload Image
             </Button>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
+        <ModalOverlay />
+        <ModalContent maxW="800px">
+          <ModalHeader>Edit Manuscript Details</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            {editedManuscript && (
+              <VStack spacing={4}>
+                <FormControl>
+                  <FormLabel>MS ID</FormLabel>
+                  <Input
+                    value={editedManuscript.metadata['MS ID:']}
+                    onChange={(e) => handleInputChange('MS ID:', e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Other Names</FormLabel>
+                  <Input
+                    value={editedManuscript.metadata['Other Names:']}
+                    onChange={(e) => handleInputChange('Other Names:', e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Date</FormLabel>
+                  <Input
+                    value={editedManuscript.metadata['Date:']}
+                    onChange={(e) => handleInputChange('Date:', e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Place of Origin</FormLabel>
+                  <Input
+                    value={editedManuscript.metadata['Origin:']}
+                    onChange={(e) => handleInputChange('Origin:', e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Materials</FormLabel>
+                  <Input
+                    value={editedManuscript.metadata['Materials:']}
+                    onChange={(e) => handleInputChange('Materials:', e.target.value)}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Format Description</FormLabel>
+                  <Textarea
+                    value={editedManuscript.metadata['Format Description:']}
+                    onChange={(e) => handleInputChange('Format Description:', e.target.value)}
+                  />
+                </FormControl>
+
+                {/* Verses Section */}
+                <Box width="100%" mt={4}>
+                  <Flex justify="space-between" align="center" mb={4}>
+                    <Heading size="md">Verses</Heading>
+                    <Button size="sm" colorScheme="blue" onClick={handleAddVerse}>
+                      Add Verse
+                    </Button>
+                  </Flex>
+                  <VStack spacing={2} align="stretch" position="relative">
+                    {editedManuscript.verses.map((verse, index) => (
+                      <Box
+                        key={index}
+                        p={4}
+                        borderWidth="1px"
+                        borderRadius="md"
+                        bg="white"
+                        draggable={editingVerseIndex !== index}
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragEnd={(e) => handleDragEnd(e)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDrop={(e) => handleDrop(e, index)}
+                        cursor={editingVerseIndex === index ? 'default' : 'grab'}
+                        transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+                        _hover={{ bg: "gray.50" }}
+                        style={getVerseStyle(index)}
+                      >
+                        <Flex justify="space-between" align="center">
+                          <Flex align="center" flex={1}>
+                            <Box 
+                              mr={3}
+                              cursor={editingVerseIndex === index ? 'default' : 'grab'}
+                              _active={{ cursor: 'grabbing' }}
+                            >
+                              <DragHandleIcon />
+                            </Box>
+                            {editingVerseIndex === index ? (
+                              <Flex flex={1} align="center">
+                                <Textarea
+                                  value={editingVerseText}
+                                  onChange={(e) => setEditingVerseText(e.target.value)}
+                                  size="sm"
+                                  resize="vertical"
+                                  mr={2}
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      saveVerseEdit();
+                                    } else if (e.key === 'Escape') {
+                                      cancelEditingVerse();
+                                    }
+                                  }}
+                                />
+                                <IconButton
+                                  aria-label="Save verse"
+                                  icon={<CheckIcon />}
+                                  size="sm"
+                                  colorScheme="green"
+                                  mr={1}
+                                  onClick={saveVerseEdit}
+                                />
+                                <IconButton
+                                  aria-label="Cancel editing"
+                                  icon={<CloseIcon />}
+                                  size="sm"
+                                  onClick={cancelEditingVerse}
+                                />
+                              </Flex>
+                            ) : (
+                              <Flex flex={1} align="center">
+                                <Text fontWeight="bold" mr={4} flexShrink={0}>
+                                  Verse {verse.verse_number}
+                                </Text>
+                                <Text flex={1} whiteSpace="pre-wrap" wordBreak="break-word">{verse.verse_text}</Text>
+                                <Box flexShrink={0}>
+                                  <IconButton
+                                    aria-label="Edit verse"
+                                    icon={<EditIcon />}
+                                    size="sm"
+                                    variant="ghost"
+                                    mr={2}
+                                    onClick={() => startEditingVerse(index)}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    colorScheme="red"
+                                    variant="ghost"
+                                    onClick={() => handleRemoveVerse(index)}
+                                  >
+                                    Remove
+                                  </Button>
+                                </Box>
+                              </Flex>
+                            )}
+                          </Flex>
+                        </Flex>
+                      </Box>
+                    ))}
+                  </VStack>
+                </Box>
+
+                <Button
+                  colorScheme="blue"
+                  onClick={handleSave}
+                  isLoading={isSaving}
+                  width="100%"
+                  mt={4}
+                >
+                  Save Changes
+                </Button>
+              </VStack>
+            )}
           </ModalBody>
         </ModalContent>
       </Modal>
