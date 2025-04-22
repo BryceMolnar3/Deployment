@@ -285,3 +285,22 @@ def update_manuscript(request, filename):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
+@csrf_exempt
+@api_view(['DELETE'])
+def delete_manuscript(request, filename):
+    try:
+        # Find the document
+        document = documents.find_one({'filename': filename})
+        if not document:
+            return Response({'error': 'Document not found'}, status=404)
+        
+        # Delete the document
+        result = documents.delete_one({'filename': filename})
+        
+        if result.deleted_count == 0:
+            return Response({'error': 'Failed to delete document'}, status=500)
+        
+        return Response(status=204)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+

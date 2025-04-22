@@ -10,10 +10,5 @@ urlpatterns = [
     path('api/documents/<str:filename>/update-document', views.update_document, name='update_document'),
     path('api/documents/<str:filename>/update-manuscript', views.update_manuscript, name='update_manuscript'),
     path('api/documents/<str:filename>', views.get_document, name='get_document'),
-    
-    # Legacy endpoints (can be removed if not used)
-    path('manuscripts/', views.get_manuscripts, name='get_manuscripts'),
-    path('manuscripts/search/', views.search_manuscripts, name='search_manuscripts'),
-    path('versions/', views.get_versions, name='get_versions'),
-    path('versions/add/', views.add_version, name='add_version'),
+    path('api/documents/<str:filename>/delete', views.delete_manuscript, name='delete_manuscript'),
 ] 

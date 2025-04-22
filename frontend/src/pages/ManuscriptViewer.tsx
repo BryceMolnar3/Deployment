@@ -61,9 +61,11 @@ function ManuscriptViewer() {
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const [editedManuscript, setEditedManuscript] = useState<Manuscript | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const toast = useToast();
@@ -373,6 +375,43 @@ function ManuscriptViewer() {
 
       setEditingVerseIndex(null);
       setEditingVerseText('');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!manuscript) return;
+
+    try {
+      setIsDeleting(true);
+      const response = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/delete`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete manuscript');
+      }
+
+      toast({
+        title: 'Manuscript deleted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      // Navigate back to the search page
+      navigate('/search-database');
+    } catch (error) {
+      toast({
+        title: 'Error deleting manuscript',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsDeleting(false);
+      onDeleteClose();
     }
   };
 
@@ -743,8 +782,42 @@ function ManuscriptViewer() {
                 >
                   Save Changes
                 </Button>
+
+                <Button
+                  colorScheme="red"
+                  onClick={onDeleteOpen}
+                  width="100%"
+                  mt={2}
+                >
+                  Delete Manuscript
+                </Button>
               </VStack>
             )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={isDeleteOpen} onClose={onDeleteClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Delete Manuscript</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <Text>Are you sure you want to delete this manuscript? This action cannot be undone.</Text>
+            <Text mt={2} fontWeight="bold">Manuscript: {manuscript?.filename.replace('.docx', '')}</Text>
+            
+            <Flex mt={4} gap={3}>
+              <Button
+                colorScheme="red"
+                onClick={handleDelete}
+                isLoading={isDeleting}
+                flex={1}
+              >
+                Yes, Delete
+              </Button>
+              <Button onClick={onDeleteClose} flex={1}>Cancel</Button>
+            </Flex>
           </ModalBody>
         </ModalContent>
       </Modal>
