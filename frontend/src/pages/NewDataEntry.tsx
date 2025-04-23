@@ -23,6 +23,7 @@ function NewDataEntry() {
     sigla: '',
     date: '',
     other_names: '',
+    contents: '',
     place_of_origin: '',
     total_folia: '',
     dimensions: '',
@@ -69,6 +70,7 @@ function NewDataEntry() {
       sigla: '',
       date: '',
       other_names: '',
+      contents: '',
       place_of_origin: '',
       total_folia: '',
       dimensions: '',
@@ -94,7 +96,7 @@ function NewDataEntry() {
         metadata: {
           'MS ID:': formData.ms_id,
           'Other Names:': formData.other_names,
-          'Contents:': '',
+          'Contents:': formData.contents,
           'Date:': formData.date,
           'Origin:': formData.place_of_origin,
           'Total Folia:': formData.total_folia,
@@ -155,13 +157,14 @@ function NewDataEntry() {
       }
 
       // Process transcription into verses
+      // Split by newlines and filter out empty lines
       const verses = formData.transcription
         .split('\n')
-        .map((line, index) => {
-          const verseNumber = index + 1;
-          return [verseNumber.toString(), line.trim()];
-        })
-        .filter(([_, text]) => text.length > 0);
+        .map((line, index) => ({
+          verse_number: index + 1,
+          verse_text: line.trim()
+        }))
+        .filter(verse => verse.verse_text.length > 0);
 
       const formDataToSend = new FormData();
       
@@ -171,7 +174,7 @@ function NewDataEntry() {
         metadata: {
           'MS ID:': formData.ms_id,
           'Other Names:': formData.other_names,
-          'Contents:': '',
+          'Contents:': formData.contents,
           'Date:': formData.date,
           'Origin:': formData.place_of_origin,
           'Total Folia:': formData.total_folia,
@@ -317,6 +320,16 @@ function NewDataEntry() {
                   />
                 </Box>
                 <Box flex={1}>
+                  <Text fontSize="lg" mb={2}>Contents</Text>
+                  <Input 
+                    name="contents"
+                    value={formData.contents}
+                    onChange={handleChange}
+                    size="lg"
+                    borderColor="gray.400"
+                  />
+                </Box>
+                <Box flex={1}>
                   <Text fontSize="lg" mb={2}>Place of Origin</Text>
                   <Input 
                     name="place_of_origin"
@@ -427,16 +440,20 @@ function NewDataEntry() {
 
           <Box mt={6}>
             <Text fontSize="lg" mb={2}>Transcription</Text>
+            <Text fontSize="sm" color="gray.600" mb={2}>
+              Enter each verse on a new line. Press Enter/Return to start a new verse.
+            </Text>
             <Textarea
               name="transcription"
               value={formData.transcription}
               onChange={handleChange}
-              placeholder="Text goes here...."
+              placeholder="Enter verses here...&#13;&#10;Press Enter/Return for each new verse"
               size="lg"
               height="500px"
               resize="vertical"
               borderColor="gray.400"
               width="100%"
+              whiteSpace="pre-wrap"
             />
           </Box>
         </Box>
