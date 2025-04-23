@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from .models import TextVersion, Manuscript
@@ -12,10 +13,17 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+
+
 # MongoDB connection
 client = MongoClient('localhost', 27017)
 db = client.document_db
 documents = db['documents']
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def private_view(request):
+    return Response({"message": "You are logged in!"})
 
 @api_view(['GET'])
 def get_manuscripts(request):
