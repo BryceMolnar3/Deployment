@@ -58,14 +58,23 @@ function VerseId() {
           throw new Error('Failed to fetch manuscripts');
         }
         const data = await response.json();
-        // Transform verses from array of tuples to array of objects
+        
+        // Transform manuscripts to ensure consistent verse format
         const transformedData = data.map((manuscript: any) => ({
           ...manuscript,
-          verses: manuscript.verses.map(([number, text]: [string, string]) => ({
-            verse_number: parseInt(number),
-            verse_text: text
-          }))
+          verses: manuscript.verses.map((verse: any) => {
+            // If verse is a tuple [number, text]
+            if (Array.isArray(verse)) {
+              return {
+                verse_number: parseInt(verse[0]),
+                verse_text: verse[1]
+              };
+            }
+            // If verse is already an object {verse_number, verse_text}
+            return verse;
+          })
         }));
+        
         setManuscripts(transformedData);
       } catch (error) {
         console.error('Error fetching manuscripts:', error);
@@ -100,29 +109,31 @@ function VerseId() {
       </Box>
       <Box p={6} ml={8}>
         <Heading size="lg" mb={4} color={textColor}>Verse {verseNumber}</Heading>
-        {manuscripts.map((manuscript) => {
-          const verse = manuscript.verses.find(v => v.verse_number === verseNumber);
-          return (
-            <Box key={manuscript._id} mb={6}>
-              <Flex ml={6}>
-                <Heading 
-                  size="md" 
-                  mb={2} 
-                  cursor="pointer"
-                  color={linkColor}
-                  _hover={{ textDecoration: 'underline' }}
-                  onClick={() => {
-                    navigate(`/manuscript-viewer/${manuscript.filename.replace('.docx', '')}`, {
-                      state: { manuscriptId: manuscript.filename }
-                    });
-                  }}
-                >
-                  {manuscript.filename.replace('.docx', '')}
-                </Heading>
-                <Text fontSize="lg" ml={4} color={textColor}>{verse?.verse_text}</Text>
-              </Flex>
-            </Box>
-          );
+        {manuscripts
+          .filter(manuscript => manuscript.verses.some(v => v.verse_number === verseNumber))
+          .map((manuscript) => {
+            const verse = manuscript.verses.find(v => v.verse_number === verseNumber);
+            return (
+              <Box key={manuscript._id} mb={6}>
+                <Flex ml={6}>
+                  <Heading 
+                    size="md" 
+                    mb={2} 
+                    cursor="pointer"
+                    color={linkColor}
+                    _hover={{ textDecoration: 'underline' }}
+                    onClick={() => {
+                      navigate(`/manuscript-viewer/${manuscript.filename.replace('.docx', '')}`, {
+                        state: { manuscriptId: manuscript.filename }
+                      });
+                    }}
+                  >
+                    {manuscript.filename.replace('.docx', '')}
+                  </Heading>
+                  <Text fontSize="lg" ml={4} color={textColor}>{verse?.verse_text}</Text>
+                </Flex>
+              </Box>
+            );
         })}
       </Box>
     </Box>

@@ -14,10 +14,14 @@ import {
   Th,
   Td,
   useToast,
-  Select
+  Select,
+  Stack,
+  FormControl,
+  FormLabel
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 // Define the Manuscript interface to match MongoDB structure
 interface Manuscript {
@@ -158,7 +162,7 @@ const manuscriptService = {
         throw new Error(`Failed to fetch manuscripts: ${errorText}`);
       }
       const data = await response.json();
-      return data.map(convertManuscript);
+      return data;
     } catch (error) {
       console.error('Error fetching manuscripts:', error);
       throw error;
@@ -173,9 +177,24 @@ const manuscriptService = {
         throw new Error(`Failed to search manuscripts: ${errorText}`);
       }
       const data = await response.json();
-      return data.map(convertManuscript);
+      return data;
     } catch (error) {
       console.error('Error searching manuscripts:', error);
+      throw error;
+    }
+  },
+
+  async deleteManuscript(filename: string): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${filename}/delete`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete manuscript: ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting manuscript:', error);
       throw error;
     }
   },
@@ -245,7 +264,7 @@ function getCountryFromOrigin(origin: string): string {
 function SearchDatabase() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState<Manuscript[]>([]);
+  const [manuscripts, setManuscripts] = useState<Manuscript[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('sigla-asc');
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -259,7 +278,7 @@ function SearchDatabase() {
         setError(null);
         const manuscripts = await manuscriptService.getAllManuscripts();
         const sortedManuscripts = await manuscriptService.getSortedManuscripts(manuscripts, 'sigla-asc');
-        setSearchResults(sortedManuscripts);
+        setManuscripts(sortedManuscripts);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to load manuscripts';
         setError(errorMessage);
@@ -285,8 +304,8 @@ function SearchDatabase() {
     try {
       setIsLoading(true);
       setError(null);
-      const sortedResults = await manuscriptService.getSortedManuscripts(searchResults, sortOption);
-      setSearchResults(sortedResults);
+      const sortedResults = await manuscriptService.getSortedManuscripts(manuscripts, sortOption);
+      setManuscripts(sortedResults);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to sort manuscripts';
       setError(errorMessage);
@@ -303,14 +322,14 @@ function SearchDatabase() {
   }
 
   async function handleSearch() {
-    if (!searchQuery.trim() && searchResults.length === 0) {
+    if (!searchQuery.trim() && manuscripts.length === 0) {
       // If empty query and no results, load all manuscripts
       try {
         setIsLoading(true);
         setError(null);
         const manuscripts = await manuscriptService.getAllManuscripts();
         const sortedManuscripts = await manuscriptService.getSortedManuscripts(manuscripts, sortBy);
-        setSearchResults(sortedManuscripts);
+        setManuscripts(sortedManuscripts);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to load manuscripts';
         setError(errorMessage);
@@ -332,7 +351,7 @@ function SearchDatabase() {
       setError(null);
       const results = await manuscriptService.searchManuscripts(searchQuery);
       const sortedResults = await manuscriptService.getSortedManuscripts(results, sortBy);
-      setSearchResults(sortedResults);
+      setManuscripts(sortedResults);
 
       if (results.length === 0) {
         toast({
@@ -360,6 +379,18 @@ function SearchDatabase() {
   function handleViewManuscript(sigla: string) {
     navigate(`/manuscript-viewer/${sigla}`);
   }
+
+  const handleDelete = async (filename: string) => {
+    try {
+      await manuscriptService.deleteManuscript(filename);
+      // Refresh the manuscript list after deletion
+      const updatedManuscripts = manuscripts.filter(m => m.filename !== filename);
+      setManuscripts(updatedManuscripts);
+    } catch (error) {
+      console.error('Failed to delete manuscript:', error);
+      // You might want to show an error message to the user here
+    }
+  };
 
   return (
     <Box>
@@ -427,7 +458,7 @@ function SearchDatabase() {
             </Button>
           </Flex>
 
-          <Box borderWidth={1} borderColor="gray.200" borderRadius="md" overflow="hidden">
+          {manuscripts.length > 0 ? (
             <Table variant="simple">
               <Thead>
                 <Tr>
@@ -440,7 +471,7 @@ function SearchDatabase() {
                 </Tr>
               </Thead>
               <Tbody>
-                {searchResults.map((manuscript) => (
+                {manuscripts.map((manuscript) => (
                   <Tr key={manuscript._id}>
                     <Td>{manuscript.filename.replace('.docx', '')}</Td>
                     <Td>{manuscript.metadata['MS ID:']}</Td>
@@ -448,19 +479,23 @@ function SearchDatabase() {
                     <Td>{manuscript.metadata['Date:']}</Td>
                     <Td>{manuscript.metadata['Origin:']}</Td>
                     <Td>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        onClick={() => navigate(`/manuscript-viewer/${manuscript.filename.replace('.docx', '')}`)}
-                      >
-                        View
-                      </Button>
+                      <Stack direction="row" spacing={2}>
+                        <Button
+                          size="sm"
+                          colorScheme="blue"
+                          onClick={() => handleViewManuscript(manuscript.filename.replace('.docx', ''))}
+                        >
+                          View
+                        </Button>
+                      </Stack>
                     </Td>
                   </Tr>
                 ))}
               </Tbody>
             </Table>
-          </Box>
+          ) : (
+            <Text>No manuscripts found</Text>
+          )}
         </Box>
       </Box>
     </Box>

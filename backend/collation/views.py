@@ -239,3 +239,68 @@ def update_document(request, filename):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+@csrf_exempt
+@api_view(['PUT'])
+def update_manuscript(request, filename):
+    try:
+        # Get the document data from the request
+        document_data = request.data
+        
+        # Find the existing document
+        existing_doc = documents.find_one({'filename': filename})
+        if not existing_doc:
+            return Response({'error': 'Document not found'}, status=404)
+        
+        # Remove _id field if present to avoid MongoDB immutable field error
+        if '_id' in document_data:
+            del document_data['_id']
+        
+        # Create updated document by merging existing data with updates
+        updated_data = {**existing_doc, **document_data}
+        del updated_data['_id']  # Remove _id from the merged data
+        
+        # Validate verses data if present
+        if 'verses' in document_data:
+            # Ensure verses are properly formatted
+            for verse in document_data['verses']:
+                if not isinstance(verse.get('verse_number'), int):
+                    return Response({'error': 'Invalid verse number format'}, status=400)
+                if not isinstance(verse.get('verse_text'), str):
+                    return Response({'error': 'Invalid verse text format'}, status=400)
+        
+        # Update the document
+        result = documents.update_one(
+            {'filename': filename},
+            {'$set': updated_data}
+        )
+        
+        if result.modified_count == 0:
+            return Response({'error': 'No changes made to document'}, status=400)
+        
+        # Get the updated document
+        updated_document = documents.find_one({'filename': filename})
+        updated_document['_id'] = str(updated_document['_id'])
+        
+        return Response(updated_document)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@csrf_exempt
+@api_view(['DELETE'])
+def delete_manuscript(request, filename):
+    try:
+        # Find the document
+        document = documents.find_one({'filename': filename})
+        if not document:
+            return Response({'error': 'Document not found'}, status=404)
+        
+        # Delete the document
+        result = documents.delete_one({'filename': filename})
+        
+        if result.deleted_count == 0:
+            return Response({'error': 'Failed to delete document'}, status=500)
+        
+        return Response(status=204)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
