@@ -257,9 +257,6 @@ def update_document(request, filename):
             {'$set': document_data}
         )
         
-        if result.modified_count == 0:
-            return JsonResponse({'error': 'No changes made to document'}, status=400)
-        
         # Get the updated document
         updated_document = documents.find_one({'filename': filename})
         updated_document['_id'] = str(updated_document['_id'])
