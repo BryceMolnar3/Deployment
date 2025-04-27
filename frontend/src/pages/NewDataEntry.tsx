@@ -25,7 +25,14 @@ import {
   ModalHeader,
   ModalBody,
   ModalCloseButton,
-  ModalFooter
+  ModalFooter,
+  Tooltip,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 
@@ -82,6 +89,9 @@ function NewDataEntry() {
   const { isOpen: isConfirmModalOpen, onOpen: onConfirmModalOpen, onClose: onConfirmModalClose } = useDisclosure();
   const [currentImageError, setCurrentImageError] = useState(false);
   const [currentModalImageError, setCurrentModalImageError] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   // Fetch drafts on component mount
   useEffect(() => {
@@ -187,6 +197,32 @@ function NewDataEntry() {
   }
 
   async function handleSaveAsDraft() {
+    // Check if all fields are empty (including verses)
+    const allFields = [
+      formData.ms_id,
+      formData.sigla,
+      formData.date,
+      formData.other_names,
+      formData.contents,
+      formData.place_of_origin,
+      formData.total_folia,
+      formData.dimensions,
+      formData.materials,
+      formData.laod_folia,
+      formData.format_description,
+      formData.transcription
+    ];
+    const allEmpty = allFields.every(field => !field || field.trim() === '');
+    if (allEmpty) {
+      toast({
+        title: 'Cannot save empty draft',
+        description: 'Please fill in at least one field or add a verse before saving as draft.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true,
+      });
+      return;
+    }
     try {
       setIsLoading(true);
       
@@ -355,6 +391,46 @@ function NewDataEntry() {
     }
   }
 
+  async function handleDeleteDraft(filename: string) {
+    try {
+      await fetch(`${API_BASE_URL}/api/documents/draft/${filename}/delete/`, {
+        method: 'DELETE',
+      });
+      fetchDrafts();
+      toast({
+        title: 'Draft deleted',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error deleting draft',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  }
+
+  function openDeleteDialog(filename: string) {
+    setDraftToDelete(filename);
+    setIsDeleteDialogOpen(true);
+  }
+
+  function closeDeleteDialog() {
+    setIsDeleteDialogOpen(false);
+    setDraftToDelete(null);
+  }
+
+  async function confirmDeleteDraft() {
+    if (draftToDelete) {
+      await handleDeleteDraft(draftToDelete);
+      closeDeleteDialog();
+    }
+  }
+
   return (
     <Box>
       <NavigationBar />
@@ -413,18 +489,14 @@ function NewDataEntry() {
         </Box>
 
         {/* Drafts Modal */}
-        <Modal isOpen={isOpen} onClose={onClose} size="xl">
+        <Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered>
           <ModalOverlay />
-          <ModalContent>
+          <ModalContent maxW="600px">
             <ModalHeader>Saved Drafts</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              {isLoadingDrafts ? (
-                <Text>Loading drafts...</Text>
-              ) : drafts.length === 0 ? (
-                <Text>No drafts found</Text>
-              ) : (
-                <Table variant="simple">
+              <Box overflowX="auto" maxH="350px">
+                <Table variant="simple" size="sm">
                   <Thead>
                     <Tr>
                       <Th>MS ID</Th>
@@ -436,23 +508,50 @@ function NewDataEntry() {
                   <Tbody>
                     {drafts.map((draft) => (
                       <Tr key={draft._id}>
-                        <Td>{draft.metadata['MS ID:'] ? draft.metadata['MS ID:'] : '[None]'}</Td>
-                        <Td>{draft.filename.replace('.docx', '') ? draft.filename.replace('.docx', '') : '[None]'}</Td>
-                        <Td>{draft.metadata['Date:'] ? draft.metadata['Date:'] : '[None]'}</Td>
                         <Td>
-                          <Button
-                            colorScheme="blue"
-                            size="sm"
-                            onClick={() => loadDraft(draft)}
-                          >
-                            Continue Editing
-                          </Button>
+                          <Tooltip label={draft.metadata['MS ID:'] || '[None]'} hasArrow>
+                            <Box isTruncated maxW="120px">
+                              {draft.metadata['MS ID:'] ? draft.metadata['MS ID:'] : '[None]'}
+                            </Box>
+                          </Tooltip>
+                        </Td>
+                        <Td>
+                          <Tooltip label={draft.filename.replace('.docx', '') || '[None]'} hasArrow>
+                            <Box isTruncated maxW="80px">
+                              {draft.filename.replace('.docx', '') ? draft.filename.replace('.docx', '') : '[None]'}
+                            </Box>
+                          </Tooltip>
+                        </Td>
+                        <Td>
+                          <Tooltip label={draft.metadata['Date:'] || '[None]'} hasArrow>
+                            <Box isTruncated maxW="80px">
+                              {draft.metadata['Date:'] ? draft.metadata['Date:'] : '[None]'}
+                            </Box>
+                          </Tooltip>
+                        </Td>
+                        <Td>
+                          <HStack spacing={2}>
+                            <Button
+                              colorScheme="blue"
+                              size="sm"
+                              onClick={() => loadDraft(draft)}
+                            >
+                              Continue Editing
+                            </Button>
+                            <Button
+                              colorScheme="red"
+                              size="sm"
+                              onClick={() => openDeleteDialog(draft.filename)}
+                            >
+                              Delete
+                            </Button>
+                          </HStack>
                         </Td>
                       </Tr>
                     ))}
                   </Tbody>
                 </Table>
-              )}
+              </Box>
             </ModalBody>
             <ModalFooter>
               <Button colorScheme="blue" mr={3} onClick={onClose}>
@@ -461,6 +560,33 @@ function NewDataEntry() {
             </ModalFooter>
           </ModalContent>
         </Modal>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          isOpen={isDeleteDialogOpen}
+          leastDestructiveRef={cancelRef}
+          onClose={closeDeleteDialog}
+          isCentered
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent>
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                Delete Draft
+              </AlertDialogHeader>
+              <AlertDialogBody>
+                Are you sure you want to delete this draft? This action cannot be undone.
+              </AlertDialogBody>
+              <AlertDialogFooter>
+                <Button ref={cancelRef} onClick={closeDeleteDialog}>
+                  Cancel
+                </Button>
+                <Button colorScheme="red" onClick={confirmDeleteDraft} ml={3}>
+                  Delete
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
 
         {/* Confirm Replace Draft Modal */}
         <Modal isOpen={isConfirmModalOpen} onClose={onConfirmModalClose} size="xl">
@@ -512,19 +638,12 @@ function NewDataEntry() {
                         alt="Current draft image"
                         maxH="200px"
                         objectFit="contain"
-                        fallbackSrc="https://via.placeholder.com/200x200?text=No+Image"
                         onError={() => setCurrentModalImageError(true)}
                       />
                     </Box>
                   ) : (
                     <Box>
                       <Text fontWeight="bold" mb={2}>Current Image:</Text>
-                      <Image
-                        src="https://via.placeholder.com/200x200?text=No+Image"
-                        alt="No current draft image"
-                        maxH="200px"
-                        objectFit="contain"
-                      />
                     </Box>
                   )}
                 </Box>
@@ -559,7 +678,7 @@ function NewDataEntry() {
                     </Tbody>
                   </Table>
 
-                  {selectedImage && (
+                  {selectedImage ? (
                     <Box>
                       <Text fontWeight="bold" mb={2}>New Image:</Text>
                       <Image
@@ -568,6 +687,10 @@ function NewDataEntry() {
                         maxH="200px"
                         objectFit="contain"
                       />
+                    </Box>
+                  ) : (
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>New Image:</Text>
                     </Box>
                   )}
                 </Box>
