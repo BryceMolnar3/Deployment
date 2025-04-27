@@ -211,6 +211,9 @@ function NewDataEntry() {
         isClosable: true,
       });
 
+      // Redirect to ManuscriptViewer for the new manuscript
+      window.location.href = `/manuscript-viewer/${formData.sigla}`;
+      // Or, if using react-router: navigate(`/manuscript-viewer/${formData.sigla}`);
       // Clear form after successful submission
       handleClear();
     } catch (error) {

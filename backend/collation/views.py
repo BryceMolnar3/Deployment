@@ -214,11 +214,18 @@ def create_draft(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
-@require_http_methods(["PUT"])
+@require_http_methods(["PUT", "POST"])
 def update_document(request, filename):
     try:
-        # Get the document data from the form
+        print("=== DEBUG: update_document called ===")
+        print("request.method:", request.method)
+        print("request.POST:", dict(request.POST))
+        print("request.FILES:", request.FILES)
         document_data = json.loads(request.POST.get('document', '{}'))
+        print("document_data:", document_data)
+        # Remove _id field if present to avoid MongoDB immutable field error
+        if '_id' in document_data:
+            del document_data['_id']
         
         # Find the existing document
         existing_doc = documents.find_one({'filename': filename})

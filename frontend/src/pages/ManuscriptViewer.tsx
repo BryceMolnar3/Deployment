@@ -161,8 +161,8 @@ function ManuscriptViewer() {
         image_filename: 'manuscript_image.jpg'
       }));
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/update`, {
-        method: 'PUT',
+      const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/update-document`, {
+        method: 'POST',
         body: formData
       });
 
