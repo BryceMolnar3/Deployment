@@ -114,11 +114,11 @@ function PhylogeneticAnalysis() {
   return (
     <Box>
       <NavigationBar />
+      <Box bg="#08004F" py={8} px={6} position="relative">
+        <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Phylogenetic Analysis</Heading>
+      </Box>
       <Box p={8}>
-        <Box bg="#08004F" py={8} px={6} position="relative">
-          <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Phylogenetic Analysis</Heading>
-        </Box>
-        <Box mt={8} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center">
           {imageSrc && (
             <>
               <Box
