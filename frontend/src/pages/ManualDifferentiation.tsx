@@ -79,108 +79,6 @@ interface Manuscript {
   }[];
 }
 
-// Function to generate word comparisons from MongoDB data
-function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscript: Manuscript): WordComparison[] {
-  const comparisons: WordComparison[] = [];
-  
-  // Compare each verse
-  baseManuscript.verses.forEach((baseVerse) => {
-    const comparisonVerse = comparisonManuscript.verses.find(
-      v => v.verse_number === baseVerse.verse_number
-    );
-
-    if (!comparisonVerse) return;
-
-    // Split verses into words and clean them
-    const baseWords = baseVerse.verse_text
-      .toLowerCase()
-      .replace(/[.,()]/g, '')
-      .split(' ')
-      .filter(word => word.length > 0);
-      
-    const comparisonWords = comparisonVerse.verse_text
-      .toLowerCase()
-      .replace(/[.,()]/g, '')
-      .split(' ')
-      .filter(word => word.length > 0);
-
-    // Compare words
-    const maxLength = Math.max(baseWords.length, comparisonWords.length);
-    for (let i = 0; i < maxLength; i++) {
-      const word1 = baseWords[i] || '[missing]';
-      const word2 = comparisonWords[i] || '[missing]';
-      
-      if (word1 !== word2) {
-        comparisons.push({
-          verseNumber: baseVerse.verse_number,
-          word1,
-          word2,
-          position: i + 1,
-          manuscriptSigla: comparisonManuscript.filename.replace('.docx', '')
-        });
-      }
-    }
-  });
-
-  return comparisons;
-}
-
-// API service for manuscript operations
-const manuscriptService = {
-  async fetchComparisons(): Promise<WordComparison[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch manuscripts');
-      }
-      const data = await response.json();
-      
-      // Find base manuscript (01)
-      const baseManuscript = data.find((m: Manuscript) => m.filename === '01.docx');
-      if (!baseManuscript) {
-        throw new Error('Base manuscript (01) not found');
-      }
-
-      // Generate comparisons with all other manuscripts
-      const allComparisons: WordComparison[] = [];
-      data.forEach((manuscript: Manuscript) => {
-        if (manuscript.filename !== '01.docx') {
-          const comparisons = generateWordComparisons(baseManuscript, manuscript);
-          allComparisons.push(...comparisons);
-        }
-      });
-
-      return allComparisons;
-    } catch (error) {
-      throw new Error('Error fetching comparisons: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  },
-
-  async saveComparison(data: {
-    wordComparison: WordComparison;
-    isSignificant: boolean;
-    variationType: string;
-  }): Promise<ComparisonResult> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/comparisons/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save comparison');
-      }
-
-      return await response.json();
-    } catch (error) {
-      throw new Error('Error saving comparison: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  },
-};
-
 // Default variation types
 const defaultVariationTypes = [
   "Different Spelling",
@@ -292,7 +190,7 @@ function ManualDifferentiation() {
       setError(null);
 
       // Save the comparison result
-      await manuscriptService.saveComparison({
+      await collationService.saveComparison({
         wordComparison: currentVariation,
         isSignificant,
         variationType,
