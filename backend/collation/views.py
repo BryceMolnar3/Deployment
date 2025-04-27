@@ -79,8 +79,8 @@ def add_version(request):
 @require_http_methods(["GET"])
 def get_documents(request):
     try:
-        # Get all documents from MongoDB
-        cursor = documents.find()
+        # Get all non-draft documents from MongoDB
+        cursor = documents.find({'$or': [{'is_draft': {'$exists': False}}, {'is_draft': False}]})
         # Convert cursor to list and then to JSON
         documents_list = list(cursor)
         # Convert ObjectId to string for JSON serialization
@@ -143,8 +143,8 @@ def create_document(request):
                 cleaned_metadata[cleaned_key] = value
             document_data['metadata'] = cleaned_metadata
         
-        # Check if document with same filename already exists
-        existing_doc = documents.find_one({'filename': document_data['filename']})
+        # Only block if a non-draft document with this filename exists
+        existing_doc = documents.find_one({'filename': document_data['filename'], '$or': [{'is_draft': {'$exists': False}}, {'is_draft': False}]})
         if existing_doc:
             return JsonResponse({'error': 'Document with this filename already exists'}, status=400)
         
@@ -715,5 +715,21 @@ def replace_draft(request):
         return JsonResponse(updated_document, status=200)
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_draft(request, filename):
+    try:
+        # Find the draft
+        draft = documents.find_one({'filename': filename, 'is_draft': True})
+        if not draft:
+            return JsonResponse({'error': 'Draft not found'}, status=404)
+        # Delete the draft
+        result = documents.delete_one({'filename': filename, 'is_draft': True})
+        if result.deleted_count == 0:
+            return JsonResponse({'error': 'Failed to delete draft'}, status=500)
+        return JsonResponse({'message': 'Draft deleted successfully'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

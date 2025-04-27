@@ -306,11 +306,8 @@ function NewDataEntry() {
       }));
 
       // Add the image if it exists
-      if (selectedImage) {
-        // Convert base64 to blob
-        const response = await fetch(selectedImage);
-        const blob = await response.blob();
-        formDataToSend.append('image', blob, 'manuscript_image.jpg');
+      if (selectedImageFile) {
+        formDataToSend.append('image', selectedImageFile, selectedImageFile.name);
       }
 
       const response = await fetch(`${API_BASE_URL}/api/documents/create/`, {
@@ -321,6 +318,16 @@ function NewDataEntry() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to submit manuscript');
+      }
+
+      // Delete the draft if it exists
+      try {
+        await fetch(`${API_BASE_URL}/api/documents/draft/${formData.sigla}.docx/delete/`, {
+          method: 'DELETE',
+        });
+        fetchDrafts();
+      } catch (e) {
+        // Ignore errors here, just try to clean up
       }
 
       toast({
@@ -429,9 +436,9 @@ function NewDataEntry() {
                   <Tbody>
                     {drafts.map((draft) => (
                       <Tr key={draft._id}>
-                        <Td>{draft.metadata['MS ID:']}</Td>
-                        <Td>{draft.filename.replace('.docx', '')}</Td>
-                        <Td>{draft.metadata['Date:']}</Td>
+                        <Td>{draft.metadata['MS ID:'] ? draft.metadata['MS ID:'] : '[None]'}</Td>
+                        <Td>{draft.filename.replace('.docx', '') ? draft.filename.replace('.docx', '') : '[None]'}</Td>
+                        <Td>{draft.metadata['Date:'] ? draft.metadata['Date:'] : '[None]'}</Td>
                         <Td>
                           <Button
                             colorScheme="blue"
