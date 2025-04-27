@@ -198,6 +198,7 @@ function ManualDifferentiation() {
   const [isFetchingData, setIsFetchingData] = useState(true);
   const [variationTypes, setVariationTypes] = useState<string[]>(defaultVariationTypes);
   const [collationResults, setCollationResults] = useState<CollationResult | null>(null);
+  const [skippedIndices, setSkippedIndices] = useState<number[]>([]);
   const toast = useToast();
 
   // Color mode values
@@ -312,7 +313,16 @@ function ManualDifferentiation() {
 
   function handleSkip() {
     if (currentIndex < variations.length - 1) {
+      setSkippedIndices(prev => [...prev, currentIndex]);
       setCurrentIndex(prev => prev + 1);
+    }
+  }
+
+  function handleGoBackToPreviousSkipped() {
+    if (skippedIndices.length > 0) {
+      const lastSkipped = skippedIndices[skippedIndices.length - 1];
+      setSkippedIndices(prev => prev.slice(0, -1));
+      setCurrentIndex(lastSkipped);
     }
   }
 
@@ -389,6 +399,18 @@ function ManualDifferentiation() {
                 borderRadius="full"
               />
             </Box>
+
+            {/* Go Back to Previous Skipped Button */}
+            {skippedIndices.length > 0 && (
+              <Button
+                colorScheme="yellow"
+                onClick={handleGoBackToPreviousSkipped}
+                borderRadius="full"
+                mb={4}
+              >
+                Go Back to Previous Skipped
+              </Button>
+            )}
 
             <Box 
               borderWidth={1} 
