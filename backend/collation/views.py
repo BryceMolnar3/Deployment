@@ -365,38 +365,46 @@ def get_verse(request, ms_id, verse_number):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-@api_view(['GET'])
+@api_view(['POST'])
 def collate_manuscripts(request):
-    """Collate verses from all available manuscripts in the database."""
+    """Collate verses between two specific manuscripts."""
     try:
-        # Get all manuscript IDs
-        all_manuscripts = list(documents.find({}, {"_id": 1}))
-        manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+        base_id = request.data.get('base_id')
+        comparison_id = request.data.get('comparison_id')
 
-        if len(manuscript_ids) < 2:
-            return JsonResponse({"error": "At least two manuscripts are required for comparison."}, status=400)
+        if not base_id or not comparison_id:
+            return JsonResponse({"error": "base_id and comparison_id are required."}, status=400)
+
+        # Fetch the two manuscripts
+        base_manuscript = documents.find_one({"_id": ObjectId(base_id)})
+        comparison_manuscript = documents.find_one({"_id": ObjectId(comparison_id)})
+
+        if not base_manuscript or not comparison_manuscript:
+            return JsonResponse({"error": "One or both manuscripts not found."}, status=404)
 
         collated_verses = {}
 
-        # Fetch verses from each manuscript
-        for ms_id in manuscript_ids:
-            manuscript = documents.find_one({"_id": ObjectId(ms_id)})
-            if not manuscript:
-                continue  # Skip if not found
+        # Process base manuscript
+        for verse in base_manuscript.get("verses", []):
+            if len(verse) < 2:
+                continue
+            verse_number = verse[0]
+            verse_text = verse[1]
+            collated_verses.setdefault(verse_number, []).append(verse_text)
 
-            verses = manuscript.get("verses", [])
-            for verse in verses:
-                if len(verse) < 2:
-                    continue
-                verse_number = verse[0]
-                verse_text = verse[1]
-                if verse_number not in collated_verses:
-                    collated_verses[verse_number] = []
-                collated_verses[verse_number].append(verse_text)
+        # Process comparison manuscript
+        for verse in comparison_manuscript.get("verses", []):
+            if len(verse) < 2:
+                continue
+            verse_number = verse[0]
+            verse_text = verse[1]
+            collated_verses.setdefault(verse_number, []).append(verse_text)
 
-        # Collate each verse
+        # Collate verses
         collated_results = {}
         for verse_number, texts in collated_verses.items():
+            if len(texts) < 2:
+                continue  # Need at least two texts to compare
             try:
                 collated_results[verse_number] = collate_texts(texts)
             except Exception as e:
@@ -407,6 +415,49 @@ def collate_manuscripts(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+    
+# @api_view(['GET'])
+# def collate_manuscripts(request):
+#     """Collate verses from all available manuscripts in the database."""
+#     try:
+#         # Get all manuscript IDs
+#         all_manuscripts = list(documents.find({}, {"_id": 1}))
+#         manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+
+#         if len(manuscript_ids) < 2:
+#             return JsonResponse({"error": "At least two manuscripts are required for comparison."}, status=400)
+
+#         collated_verses = {}
+
+#         # Fetch verses from each manuscript
+#         for ms_id in manuscript_ids:
+#             manuscript = documents.find_one({"_id": ObjectId(ms_id)})
+#             if not manuscript:
+#                 continue  # Skip if not found
+
+#             verses = manuscript.get("verses", [])
+#             for verse in verses:
+#                 if len(verse) < 2:
+#                     continue
+#                 verse_number = verse[0]
+#                 verse_text = verse[1]
+#                 if verse_number not in collated_verses:
+#                     collated_verses[verse_number] = []
+#                 collated_verses[verse_number].append(verse_text)
+
+#         # Collate each verse
+#         collated_results = {}
+#         for verse_number, texts in collated_verses.items():
+#             try:
+#                 collated_results[verse_number] = collate_texts(texts)
+#             except Exception as e:
+#                 print(f"Error collating verse {verse_number}: {e}")
+#                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
+
+#         return JsonResponse(extract_differences(collated_results), safe=False)
+
+#     except Exception as e:
+#         return JsonResponse({"error": str(e)}, status=500)
 
 @api_view(['GET'])
 def generate_phylogenetic_tree(request):

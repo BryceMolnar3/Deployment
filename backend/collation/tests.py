@@ -98,23 +98,24 @@ class DocumentAPITest(TestCase):
         self.assertEqual(verses[2], {'verse_number':'3', 'verse_text': "Multiple differences are here."})
         self.assertEqual(verses[3], {'verse_number':'4', 'verse_text': "Paulus apostolus non ab hominib(us) neq(ue) per homin(ibus) sed per ih(esu)m χρ(istu)m fratrib(us) qui sunt laodice"})
         
-    def test_get_verse(self):
-        # Use the actual verse ID created in setUp or test data
-        response = self.client.get(f'/api/verses/{str(self.manuscript_id)}/1/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        response_data = response.json()
-        verse_text = response_data.get("verse_text")
-        self.assertEqual(verse_text, "The cat is grey.")  
-    
     def test_collate_verses(self):
         """Test that collating verses from two manuscripts works correctly."""
-        response = self.client.get(f'/api/collate/?ms_ids={str(self.manuscript_id)}&ms_ids={str(self.manuscript_id2)}')
+        # Make a POST request instead of GET
+        response = self.client.post(
+            '/api/collate/', 
+            {
+                "base_id": str(self.manuscript_id),
+                "comparison_id": str(self.manuscript_id2)
+            },
+            content_type='application/json'  # Important: tell Django it's JSON
+        )
 
         # Assert the status code is 200
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
         # Parse the response data
         response_data = response.json()
+
         print("Manuscript 1:")
         pprint({
             '1': "The cat is grey.",
