@@ -448,10 +448,8 @@ def save_comparison(request):
     if request.method == 'POST':
         # Extract data from the request body
         data = request.data
-        print(data)
         # Create WordComparison instance
         word_comparison_data = data.get("wordComparison", {})
-        print(word_comparison_data)
         word_comparison_serializer = WordComparisonSerializer(data=word_comparison_data)
 
         is_significant = data.get("isSignificant", False)
@@ -459,7 +457,6 @@ def save_comparison(request):
             return Response({"message": "Comparison is not significant, not saved."}, status=status.HTTP_200_OK)
         
         if word_comparison_serializer.is_valid():
-            print(word_comparison_serializer.validated_data)
             # Save WordComparison instance to the database
             word_comparison_instance = word_comparison_serializer.save()
 
@@ -472,17 +469,14 @@ def save_comparison(request):
                 "variation_type": data.get("variationType", ""),
                 "timestamp": timestamp,
             }
-            print(comparison_result_data)
             comparison_result_serializer = ComparisonResultSerializer(data=comparison_result_data)
             
             if comparison_result_serializer.is_valid():
-                print(comparison_result_serializer.validated_data)
                 # Save ComparisonResult instance to the database
                 comparison_result_instance = comparison_result_serializer.save()
 
                 return Response(comparison_result_serializer.data, status=status.HTTP_201_CREATED)
             else:
-                print(f"serializer errors: {comparison_result_serializer.errors}")
                 return Response(comparison_result_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(word_comparison_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
