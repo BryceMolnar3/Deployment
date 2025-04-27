@@ -101,7 +101,13 @@ function PhylogeneticTree({ data, width = '100%', height = '600px' }: Phylogenet
           }}>
             {rd3tProps.nodeDatum.name}
           </div>
-          {rd3tProps.nodeDatum.attributes && (
+          {rd3tProps.nodeDatum.attributes && rd3tProps.nodeDatum.attributes.image ? (
+            <img
+              src={rd3tProps.nodeDatum.attributes.image}
+              alt="Phylogenetic Tree"
+              style={{ maxWidth: 220, maxHeight: 400, display: 'block', margin: '0 auto' }}
+            />
+          ) : rd3tProps.nodeDatum.attributes ? (
             <div style={{
               fontFamily: 'system-ui, sans-serif',
               fontSize: settings.fontSize === 'small' ? '10px' : 
@@ -113,7 +119,7 @@ function PhylogeneticTree({ data, width = '100%', height = '600px' }: Phylogenet
                 .map(function([key, value]) { return `${key}: ${value}`; })
                 .join(', ')}
             </div>
-          )}
+          ) : null}
         </foreignObject>
       </g>
     );

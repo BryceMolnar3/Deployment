@@ -445,16 +445,15 @@ def generate_phylogenetic_tree(request):
         print("\n=== GENERATING PHYLOGENETIC TREE ===")
         print(f"Method: {method}, Format: {output_format}")
         
-        # Get all manuscript IDs from the database
+        # Get all manuscript IDs from the database, EXCLUDING drafts
         all_manuscripts = list(documents.find({}))
-        manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+        filtered_manuscripts = [doc for doc in all_manuscripts if not (isinstance(doc.get('filename'), str) and 'draft' in doc.get('filename').lower())]
+        manuscript_ids = [str(doc["_id"]) for doc in filtered_manuscripts]
         
-        all_manuscripts = list(documents.find({}))
-        for doc in all_manuscripts:
+        for doc in filtered_manuscripts:
             print(f"📄 ID: {doc['_id']}, filename: {doc.get('filename')}, verses: {len(doc.get('verses', []))}")
 
-
-        print(f"Found {len(manuscript_ids)} manuscripts")
+        print(f"Found {len(manuscript_ids)} manuscripts (excluding drafts)")
         print(f"Manuscript IDs: {manuscript_ids}")
         
         if len(manuscript_ids) < 3:
@@ -543,7 +542,7 @@ def generate_phylogenetic_tree(request):
                     if len(collated_results) < 2 or verse_number in ['1', '2', '10']:
                         print(f"\nCollating verse {verse_number} with {len(texts)} manuscript versions:")
                         for i, (text, ms_id) in enumerate(zip(texts, ms_ids_for_verse)):
-                            ms_name = next((m.get('filename', f"MS-{ms_id[-6:]}") for m in all_manuscripts if str(m["_id"]) == ms_id), f"MS-{ms_id[-6:]}")
+                            ms_name = next((m.get('filename', f"MS-{ms_id[-6:]}") for m in filtered_manuscripts if str(m["_id"]) == ms_id), f"MS-{ms_id[-6:]}")
                             print(f"  MS {i+1}: '{text[:50]}{'...' if len(text) > 50 else ''}' ({ms_name})")
                     
                     # Only collate if texts are different

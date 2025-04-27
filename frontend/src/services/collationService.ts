@@ -44,5 +44,17 @@ export const collationService = {
     } catch (error) {
       throw new Error('Error fetching verse: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
+  },
+
+  async getPhylogeneticTree(format: 'base64' | 'newick' = 'base64'): Promise<{ tree_image?: string; newick_tree?: string; manuscript_count: number }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/generate_phylogenetic_tree/?format2=${format}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch phylogenetic tree');
+      }
+      return await response.json();
+    } catch (error) {
+      throw new Error('Error fetching phylogenetic tree: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
   }
 }; 
