@@ -21,9 +21,5 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-<<<<<<< HEAD
-    path('', include('collation.urls')),  # Include collation URLs at root
-=======
     path('api/', include('collation.urls')),
->>>>>>> collation
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

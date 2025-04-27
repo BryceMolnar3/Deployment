@@ -386,10 +386,10 @@ def collate_manuscripts(request):
 
             verses = manuscript.get("verses", [])
             for verse in verses:
-                if len(verse) < 2:
+                if not isinstance(verse, dict) or 'verse_number' not in verse or 'verse_text' not in verse:
                     continue
-                verse_number = verse[0]
-                verse_text = verse[1]
+                verse_number = verse['verse_number']
+                verse_text = verse['verse_text']
                 if verse_number not in collated_verses:
                     collated_verses[verse_number] = []
                 collated_verses[verse_number].append(verse_text)
@@ -403,9 +403,12 @@ def collate_manuscripts(request):
                 print(f"Error collating verse {verse_number}: {e}")
                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
 
-        return JsonResponse(extract_differences(collated_results), safe=False)
+        return JsonResponse({"differences": extract_differences(collated_results) or {}}, safe=False)
 
     except Exception as e:
+        import traceback
+        print("=== ERROR in collate_manuscripts ===")
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_view(['GET'])
@@ -453,20 +456,12 @@ def generate_phylogenetic_tree(request):
             print(f"  Found {len(verses)} verses in manuscript")
             
             for verse in verses:
-                if len(verse) < 2:
-                    print(f"  ⚠️ Skipping malformed verse: {verse}")
+                if not isinstance(verse, dict) or 'verse_number' not in verse or 'verse_text' not in verse:
                     continue
-                    
-                verse_number = verse[0]
-                verse_text = verse[1]
-                
-                # Debug first few verses of each manuscript
-                if manuscript_verse_counts[ms_id] < 3:
-                    print(f"  Verse {verse_number}: '{verse_text[:50]}{'...' if len(verse_text) > 50 else ''}'")
-                
+                verse_number = verse['verse_number']
+                verse_text = verse['verse_text']
                 if verse_number not in collated_verses:
                     collated_verses[verse_number] = []
-                
                 collated_verses[verse_number].append({
                     "text": verse_text,
                     "ms_id": ms_id
