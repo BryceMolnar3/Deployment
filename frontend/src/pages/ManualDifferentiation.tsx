@@ -51,6 +51,11 @@ interface CollationResult {
       error?: string;
     };
   };
+  witness_maps?: {
+    [verseNumber: string]: {
+      [witness: string]: string;
+    };
+  };
 }
 
 interface Manuscript {
@@ -235,16 +240,23 @@ function ManualDifferentiation() {
         
         console.log('Raw collation API response:', data);
         const newVariations: WordComparison[] = [];
+        const witnessMaps = (data as any).witness_maps ? (data as any).witness_maps : {};
         Object.entries(data.differences).forEach(([verseNumber, differenceList]) => {
           if (!Array.isArray(differenceList)) return;
           differenceList.forEach(diff => {
             if (diff.differences && diff.differences.w1 !== undefined && diff.differences.w2 !== undefined) {
+              // Use witness_maps to get the correct sigla for w2
+              let manuscriptSigla = 'w2';
+              const witnessMap = witnessMaps[verseNumber];
+              if (witnessMap && witnessMap['w2']) {
+                manuscriptSigla = witnessMap['w2'].replace('.docx', '');
+              }
               newVariations.push({
                 verseNumber: parseInt(verseNumber),
                 word1: diff.differences.w1,
                 word2: diff.differences.w2,
                 position: diff.position,
-                manuscriptSigla: 'w2' // or use diff.witness if available
+                manuscriptSigla: manuscriptSigla
               });
             }
           });

@@ -383,14 +383,16 @@ def get_verse(request, ms_id, verse_number):
 def collate_manuscripts(request):
     """Collate verses from all available manuscripts in the database."""
     try:
-        # Get all manuscript IDs
-        all_manuscripts = list(documents.find({}, {"_id": 1}))
+        # Get all manuscript IDs and their sigla/filename
+        all_manuscripts = list(documents.find({}, {"_id": 1, "sigla": 1, "filename": 1, "verses": 1}))
         manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+        manuscript_id_to_sigla = {str(doc["_id"]): (doc.get("sigla") or doc.get("filename") or f"Manuscript-{str(doc['_id'])[-6:]}") for doc in all_manuscripts}
 
         if len(manuscript_ids) < 2:
             return JsonResponse({"error": "At least two manuscripts are required for comparison."}, status=400)
 
         collated_verses = {}
+        verse_manuscript_ids = {}  # Track manuscript order for each verse
 
         # Fetch verses from each manuscript
         for ms_id in manuscript_ids:
@@ -406,29 +408,32 @@ def collate_manuscripts(request):
                 verse_text = verse['verse_text']
                 if verse_number not in collated_verses:
                     collated_verses[verse_number] = []
+                    verse_manuscript_ids[verse_number] = []
                 collated_verses[verse_number].append(verse_text)
+                verse_manuscript_ids[verse_number].append(ms_id)
 
         # Collate each verse
         collated_results = {}
+        witness_maps = {}  # NEW: store witness-to-sigla mapping per verse
         for verse_number, texts in collated_verses.items():
             try:
-                print(f'--- Collating these texts for verse {verse_number} ---')
-                for t in texts:
-                    print(repr(t))
-                # Only collate if we have multiple manuscripts
                 if len(texts) > 1:
-                    # Perform collation
                     collation_result = collate_texts(texts)
-                    print(f'Collation result for verse {verse_number}:', collation_result)
                     if collation_result:
                         collated_results[verse_number] = collation_result
-                else:
-                    print(f'Skipping verse {verse_number}: Only {len(texts)} manuscript version')
+                        # Build witness map for this verse
+                        witness_map = {}
+                        for i, ms_id in enumerate(verse_manuscript_ids[verse_number]):
+                            sigla = manuscript_id_to_sigla.get(ms_id, f"Manuscript-{ms_id[-6:]}")
+                            witness_map[f"w{i+1}"] = sigla
+                        witness_maps[verse_number] = witness_map
             except Exception as e:
-                print(f"Error collating verse {verse_number}: {e}")
                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
 
-        return JsonResponse({"differences": extract_differences(collated_results) or {}}, safe=False)
+        return JsonResponse({
+            "differences": extract_differences(collated_results) or {},
+            "witness_maps": witness_maps
+        }, safe=False)
 
     except Exception as e:
         import traceback
