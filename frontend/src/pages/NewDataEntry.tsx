@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Box, 
   Flex, 
@@ -10,12 +10,49 @@ import {
   VStack,
   HStack,
   Image,
-  useToast
+  useToast,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Badge,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  ModalFooter
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 
 // API base URL - can be configured based on environment
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+interface Draft {
+  _id: string;
+  filename: string;
+  image_filename?: string;
+  metadata: {
+    'MS ID:': string;
+    'Other Names:': string;
+    'Contents:': string;
+    'Date:': string;
+    'Origin:': string;
+    'Total Folia:': string;
+    'Dimensions:': string;
+    'Materials:': string;
+    'Laod Folia:': string;
+    'Format Description:': string;
+  };
+  verses: {
+    verse_number: number;
+    verse_text: string;
+  }[];
+}
 
 function NewDataEntry() {
   const [formData, setFormData] = useState({
@@ -33,9 +70,45 @@ function NewDataEntry() {
     transcription: ''
   });
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
+  const [existingDraft, setExistingDraft] = useState<Draft | null>(null);
+  const { isOpen: isDraftModalOpen, onOpen: onDraftModalOpen, onClose: onDraftModalClose } = useDisclosure();
+  const { isOpen: isConfirmModalOpen, onOpen: onConfirmModalOpen, onClose: onConfirmModalClose } = useDisclosure();
+  const [currentImageError, setCurrentImageError] = useState(false);
+  const [currentModalImageError, setCurrentModalImageError] = useState(false);
+
+  // Fetch drafts on component mount
+  useEffect(() => {
+    fetchDrafts();
+  }, []);
+
+  async function fetchDrafts() {
+    try {
+      setIsLoadingDrafts(true);
+      const response = await fetch(`${API_BASE_URL}/api/documents/drafts/`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch drafts');
+      }
+      const data = await response.json();
+      setDrafts(data);
+    } catch (error) {
+      toast({
+        title: 'Error fetching drafts',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoadingDrafts(false);
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
@@ -56,6 +129,7 @@ function NewDataEntry() {
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedImageFile(file);
       const reader = new FileReader();
       reader.onload = function(e) {
         setSelectedImage(e.target?.result as string);
@@ -80,58 +154,52 @@ function NewDataEntry() {
       transcription: ''
     });
     setSelectedImage(null);
+    setSelectedImageFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   }
 
+  function loadDraft(draft: Draft) {
+    setFormData({
+      ms_id: draft.metadata['MS ID:'] || '',
+      sigla: draft.filename.replace('.docx', ''),
+      date: draft.metadata['Date:'] || '',
+      other_names: draft.metadata['Other Names:'] || '',
+      contents: draft.metadata['Contents:'] || '',
+      place_of_origin: draft.metadata['Origin:'] || '',
+      total_folia: draft.metadata['Total Folia:'] || '',
+      dimensions: draft.metadata['Dimensions:'] || '',
+      materials: draft.metadata['Materials:'] || '',
+      laod_folia: draft.metadata['Laod Folia:'] || '',
+      format_description: draft.metadata['Format Description:'] || '',
+      transcription: draft.verses.map(v => v.verse_text).join('\n')
+    });
+    if (draft.image_filename) {
+      setSelectedImage(`${API_BASE_URL}/media/${draft.image_filename}`);
+      setSelectedImageFile(null);
+    } else {
+      setSelectedImage(null);
+      setSelectedImageFile(null);
+    }
+    setCurrentModalImageError(false);
+    onClose();
+  }
+
   async function handleSaveAsDraft() {
     try {
       setIsLoading(true);
-      const formDataToSend = new FormData();
       
-      // Add the main document data
-      formDataToSend.append('document', JSON.stringify({
-        filename: `${formData.sigla}.docx`,
-        metadata: {
-          'MS ID:': formData.ms_id,
-          'Other Names:': formData.other_names,
-          'Contents:': formData.contents,
-          'Date:': formData.date,
-          'Origin:': formData.place_of_origin,
-          'Total Folia:': formData.total_folia,
-          'Dimensions:': formData.dimensions,
-          'Materials:': formData.materials,
-          'Laod Folia:': formData.laod_folia,
-          'Format Description:': formData.format_description
-        },
-        verses: [] // Empty verses array for draft
-      }));
-
-      // Add the image if it exists
-      if (selectedImage) {
-        // Convert base64 to blob
-        const response = await fetch(selectedImage);
-        const blob = await response.blob();
-        formDataToSend.append('image', blob, 'manuscript_image.jpg');
+      // Check if a draft with the same filename already exists
+      const existingDraft = drafts.find(draft => draft.filename === `${formData.sigla}.docx`);
+      
+      if (existingDraft) {
+        setExistingDraft(existingDraft);
+        onConfirmModalOpen();
+        return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/documents/draft/`, {
-        method: 'POST',
-        body: formDataToSend
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save draft');
-      }
-
-      toast({
-        title: 'Draft saved',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+      await saveDraft();
     } catch (error) {
       toast({
         title: 'Error saving draft',
@@ -143,6 +211,57 @@ function NewDataEntry() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function saveDraft() {
+    const formDataToSend = new FormData();
+    formDataToSend.append('document', JSON.stringify({
+      filename: `${formData.sigla}.docx`,
+      metadata: {
+        'MS ID:': formData.ms_id,
+        'Other Names:': formData.other_names,
+        'Contents:': formData.contents,
+        'Date:': formData.date,
+        'Origin:': formData.place_of_origin,
+        'Total Folia:': formData.total_folia,
+        'Dimensions:': formData.dimensions,
+        'Materials:': formData.materials,
+        'Laod Folia:': formData.laod_folia,
+        'Format Description:': formData.format_description
+      },
+      verses: formData.transcription
+        .split('\n')
+        .map((line, index) => ({
+          verse_number: index + 1,
+          verse_text: line.trim()
+        }))
+        .filter(verse => verse.verse_text.length > 0)
+    }));
+
+    if (selectedImageFile) {
+      formDataToSend.append('image', selectedImageFile, selectedImageFile.name);
+    }
+
+    const endpoint = existingDraft ? 'draft/replace/' : 'draft/';
+    const response = await fetch(`${API_BASE_URL}/api/documents/${endpoint}`, {
+      method: 'POST',
+      body: formDataToSend
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to save draft');
+    }
+
+    toast({
+      title: existingDraft ? 'Draft replaced' : 'Draft saved',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+
+    setExistingDraft(null);
+    fetchDrafts();
   }
 
   async function handleComplete() {
@@ -237,6 +356,17 @@ function NewDataEntry() {
           <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">New Data Entry</Heading>
           <Flex position="absolute" right={6} top="50%" transform="translateY(-50%)" gap={4}>
             <Button 
+              bg="#B8860B"
+              color="white"
+              _hover={{ bg: "#9A7B0A" }}
+              onClick={onOpen}
+              borderRadius="full"
+              size="md"
+              px={8}
+            >
+              View Drafts
+            </Button>
+            <Button 
               bg="#CB0606"
               color="white"
               _hover={{ bg: "#A80505" }}
@@ -274,6 +404,185 @@ function NewDataEntry() {
             </Button>
           </Flex>
         </Box>
+
+        {/* Drafts Modal */}
+        <Modal isOpen={isOpen} onClose={onClose} size="xl">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Saved Drafts</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              {isLoadingDrafts ? (
+                <Text>Loading drafts...</Text>
+              ) : drafts.length === 0 ? (
+                <Text>No drafts found</Text>
+              ) : (
+                <Table variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>MS ID</Th>
+                      <Th>Sigla</Th>
+                      <Th>Date</Th>
+                      <Th>Actions</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {drafts.map((draft) => (
+                      <Tr key={draft._id}>
+                        <Td>{draft.metadata['MS ID:']}</Td>
+                        <Td>{draft.filename.replace('.docx', '')}</Td>
+                        <Td>{draft.metadata['Date:']}</Td>
+                        <Td>
+                          <Button
+                            colorScheme="blue"
+                            size="sm"
+                            onClick={() => loadDraft(draft)}
+                          >
+                            Continue Editing
+                          </Button>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <Button colorScheme="blue" mr={3} onClick={onClose}>
+                Close
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Confirm Replace Draft Modal */}
+        <Modal isOpen={isConfirmModalOpen} onClose={onConfirmModalClose} size="xl">
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Replace Existing Draft?</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <Text mb={4}>
+                A draft with the name "{formData.sigla}" already exists. Would you like to replace it?
+              </Text>
+              
+              <Flex gap={8} mb={4}>
+                {/* Existing Draft */}
+                <Box flex={1}>
+                  <Text fontWeight="bold" mb={2}>Current Draft Contents:</Text>
+                  <Table variant="simple" size="sm" mb={4}>
+                    <Thead>
+                      <Tr>
+                        <Th>Field</Th>
+                        <Th>Value</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      <Tr>
+                        <Td>MS ID</Td>
+                        <Td>{existingDraft?.metadata['MS ID:']}</Td>
+                      </Tr>
+                      <Tr>
+                        <Td>Date</Td>
+                        <Td>{existingDraft?.metadata['Date:']}</Td>
+                      </Tr>
+                      <Tr>
+                        <Td>Contents</Td>
+                        <Td>{existingDraft?.metadata['Contents:']}</Td>
+                      </Tr>
+                      <Tr>
+                        <Td>Verses</Td>
+                        <Td>{existingDraft?.verses.length || 0} verses</Td>
+                      </Tr>
+                    </Tbody>
+                  </Table>
+
+                  {existingDraft?.image_filename && !currentModalImageError ? (
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Current Image:</Text>
+                      <Image
+                        src={`${API_BASE_URL}/media/${existingDraft.image_filename}`}
+                        alt="Current draft image"
+                        maxH="200px"
+                        objectFit="contain"
+                        fallbackSrc="https://via.placeholder.com/200x200?text=No+Image"
+                        onError={() => setCurrentModalImageError(true)}
+                      />
+                    </Box>
+                  ) : (
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>Current Image:</Text>
+                      <Image
+                        src="https://via.placeholder.com/200x200?text=No+Image"
+                        alt="No current draft image"
+                        maxH="200px"
+                        objectFit="contain"
+                      />
+                    </Box>
+                  )}
+                </Box>
+
+                {/* New Draft */}
+                <Box flex={1}>
+                  <Text fontWeight="bold" mb={2}>New Draft Contents:</Text>
+                  <Table variant="simple" size="sm" mb={4}>
+                    <Thead>
+                      <Tr>
+                        <Th>Field</Th>
+                        <Th>Value</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      <Tr>
+                        <Td>MS ID</Td>
+                        <Td>{formData.ms_id}</Td>
+                      </Tr>
+                      <Tr>
+                        <Td>Date</Td>
+                        <Td>{formData.date}</Td>
+                      </Tr>
+                      <Tr>
+                        <Td>Contents</Td>
+                        <Td>{formData.contents}</Td>
+                      </Tr>
+                      <Tr>
+                        <Td>Verses</Td>
+                        <Td>{formData.transcription.split('\n').filter(line => line.trim().length > 0).length} verses</Td>
+                      </Tr>
+                    </Tbody>
+                  </Table>
+
+                  {selectedImage && (
+                    <Box>
+                      <Text fontWeight="bold" mb={2}>New Image:</Text>
+                      <Image
+                        src={selectedImage}
+                        alt="New draft image"
+                        maxH="200px"
+                        objectFit="contain"
+                      />
+                    </Box>
+                  )}
+                </Box>
+              </Flex>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onConfirmModalClose}>
+                Cancel
+              </Button>
+              <Button 
+                colorScheme="blue" 
+                onClick={async () => {
+                  onConfirmModalClose();
+                  await saveDraft();
+                }}
+                isLoading={isLoading}
+              >
+                Replace Draft
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
         <Box ml={8} p={6}>
           <Flex gap={12}>

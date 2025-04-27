@@ -151,8 +151,13 @@ def create_document(request):
         # Handle image upload if present
         if 'image' in request.FILES:
             image_file = request.FILES['image']
-            # Here you would typically save the image to a file storage system
-            # For now, we'll just store the filename
+            import os
+            from django.conf import settings
+            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+            image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+            with open(image_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
             document_data['image_filename'] = image_file.name
         
         # Insert new document
@@ -193,8 +198,13 @@ def create_draft(request):
         # Handle image upload if present
         if 'image' in request.FILES:
             image_file = request.FILES['image']
-            # Here you would typically save the image to a file storage system
-            # For now, we'll just store the filename
+            import os
+            from django.conf import settings
+            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+            image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+            with open(image_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
             document_data['image_filename'] = image_file.name
         
         # Add draft flag to the document
@@ -624,3 +634,86 @@ def generate_phylogenetic_tree(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_drafts(request):
+    try:
+        # Get all documents marked as drafts
+        drafts = list(documents.find({'is_draft': True}))
+        
+        # Convert ObjectId to string for JSON serialization
+        for draft in drafts:
+            draft['_id'] = str(draft['_id'])
+        
+        return JsonResponse(drafts, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def replace_draft(request):
+    try:
+        import os
+        from django.conf import settings
+        # Get the document data from the form
+        document_data = json.loads(request.POST.get('document', '{}'))
+        
+        # Validate metadata field names
+        if 'metadata' in document_data:
+            # Replace any dots in field names with spaces
+            metadata = document_data['metadata']
+            cleaned_metadata = {}
+            for key, value in metadata.items():
+                cleaned_key = key.replace('.', ' ').strip()
+                cleaned_metadata[cleaned_key] = value
+            document_data['metadata'] = cleaned_metadata
+        
+        # Find the existing draft
+        existing_doc = documents.find_one({'filename': document_data['filename'], 'is_draft': True})
+        if not existing_doc:
+            return JsonResponse({'error': 'Draft not found'}, status=404)
+        
+        # Handle image upload if present
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+            image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+            with open(image_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
+            document_data['image_filename'] = image_file.name
+        else:
+            # If no image is uploaded, remove image_filename if it exists
+            if 'image_filename' in document_data:
+                del document_data['image_filename']
+            # If the old draft had an image, delete the file from MEDIA_ROOT
+            if existing_doc.get('image_filename'):
+                image_path = os.path.join(settings.MEDIA_ROOT, existing_doc['image_filename'])
+                if os.path.exists(image_path):
+                    try:
+                        os.remove(image_path)
+                    except Exception as e:
+                        print(f"Warning: Could not delete old image file: {image_path}. Error: {e}")
+        
+        # Add draft flag to the document
+        document_data['is_draft'] = True
+        
+        # Replace the existing draft
+        result = documents.replace_one(
+            {'filename': document_data['filename'], 'is_draft': True},
+            document_data
+        )
+        
+        if result.modified_count == 0:
+            return JsonResponse({'error': 'Failed to replace draft'}, status=500)
+        
+        # Get the updated document
+        updated_document = documents.find_one({'filename': document_data['filename']})
+        updated_document['_id'] = str(updated_document['_id'])
+        
+        return JsonResponse(updated_document, status=200)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
