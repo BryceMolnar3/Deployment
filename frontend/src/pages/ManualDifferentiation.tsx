@@ -14,9 +14,17 @@ import {
   Alert,
   AlertIcon,
   useColorModeValue,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from '@chakra-ui/react';
 import NavigationBar from '../components/NavigationBar.tsx';
 import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
+import { collationService } from '../services/collationService.ts';
+import { API_BASE_URL } from '../config.ts';
 
 // Types for API responses and requests
 interface WordComparison {
@@ -33,6 +41,21 @@ interface ComparisonResult {
   variationType: string;
   wordComparison: WordComparison;
   timestamp: string;
+}
+
+interface CollationResult {
+  differences: {
+    [verseNumber: string]: {
+      witnesses?: string[];
+      table?: any[][];
+      error?: string;
+    };
+  };
+  witness_maps?: {
+    [verseNumber: string]: {
+      [witness: string]: string;
+    };
+  };
 }
 
 interface Manuscript {
@@ -56,112 +79,7 @@ interface Manuscript {
   }[];
 }
 
-// API base URL - can be configured based on environment
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-
-// Function to generate word comparisons from MongoDB data
-function generateWordComparisons(baseManuscript: Manuscript, comparisonManuscript: Manuscript): WordComparison[] {
-  const comparisons: WordComparison[] = [];
-  
-  // Compare each verse
-  baseManuscript.verses.forEach((baseVerse) => {
-    const comparisonVerse = comparisonManuscript.verses.find(
-      v => v.verse_number === baseVerse.verse_number
-    );
-
-    if (!comparisonVerse) return;
-
-    // Split verses into words and clean them
-    const baseWords = baseVerse.verse_text
-      .toLowerCase()
-      .replace(/[.,()]/g, '')
-      .split(' ')
-      .filter(word => word.length > 0);
-      
-    const comparisonWords = comparisonVerse.verse_text
-      .toLowerCase()
-      .replace(/[.,()]/g, '')
-      .split(' ')
-      .filter(word => word.length > 0);
-
-    // Compare words
-    const maxLength = Math.max(baseWords.length, comparisonWords.length);
-    for (let i = 0; i < maxLength; i++) {
-      const word1 = baseWords[i] || '[missing]';
-      const word2 = comparisonWords[i] || '[missing]';
-      
-      if (word1 !== word2) {
-        comparisons.push({
-          verseNumber: baseVerse.verse_number,
-          word1,
-          word2,
-          position: i + 1,
-          manuscriptSigla: comparisonManuscript.filename.replace('.docx', '')
-        });
-      }
-    }
-  });
-
-  return comparisons;
-}
-
-// API service for manuscript operations
-const manuscriptService = {
-  async fetchComparisons(): Promise<WordComparison[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch manuscripts');
-      }
-      const data = await response.json();
-      
-      // Find base manuscript (01)
-      const baseManuscript = data.find((m: Manuscript) => m.filename === '01.docx');
-      if (!baseManuscript) {
-        throw new Error('Base manuscript (01) not found');
-      }
-
-      // Generate comparisons with all other manuscripts
-      const allComparisons: WordComparison[] = [];
-      data.forEach((manuscript: Manuscript) => {
-        if (manuscript.filename !== '01.docx') {
-          const comparisons = generateWordComparisons(baseManuscript, manuscript);
-          allComparisons.push(...comparisons);
-        }
-      });
-
-      return allComparisons;
-    } catch (error) {
-      throw new Error('Error fetching comparisons: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  },
-
-  async saveComparison(data: {
-    wordComparison: WordComparison;
-    isSignificant: boolean;
-    variationType: string;
-  }): Promise<ComparisonResult> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/comparisons/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save comparison');
-      }
-
-      return await response.json();
-    } catch (error) {
-      throw new Error('Error saving comparison: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  },
-};
-
-// Default variation types (same as in Settings.tsx)
+// Default variation types
 const defaultVariationTypes = [
   "Different Spelling",
   "Abbreviation",
@@ -182,6 +100,8 @@ function ManualDifferentiation() {
   const [error, setError] = useState<string | null>(null);
   const [isFetchingData, setIsFetchingData] = useState(true);
   const [variationTypes, setVariationTypes] = useState<string[]>(defaultVariationTypes);
+  const [collationResults, setCollationResults] = useState<CollationResult | null>(null);
+  const [skippedIndices, setSkippedIndices] = useState<number[]>([]);
   const toast = useToast();
 
   // Color mode values
@@ -198,7 +118,6 @@ function ManualDifferentiation() {
       try {
         const types = JSON.parse(savedTypes);
         setVariationTypes(types);
-        // If current variationType is not in the new types, reset to first type
         if (!types.includes(variationType)) {
           setVariationType(types[0]);
         }
@@ -208,18 +127,44 @@ function ManualDifferentiation() {
     }
   }, [variationType]);
 
-  // Fetch variations on component mount
+  // Fetch collation results on component mount
   useEffect(() => {
-    async function fetchData() {
+    async function fetchCollation() {
       try {
         setIsFetchingData(true);
         setError(null);
-        const data = await manuscriptService.fetchComparisons();
-        setVariations(data);
+        const data = await collationService.collateManuscripts();
+        setCollationResults(data);
+        
+        console.log('Raw collation API response:', data);
+        const newVariations: WordComparison[] = [];
+        const witnessMaps = (data as any).witness_maps ? (data as any).witness_maps : {};
+        Object.entries(data.differences).forEach(([verseNumber, differenceList]) => {
+          if (!Array.isArray(differenceList)) return;
+          differenceList.forEach(diff => {
+            if (diff.differences && diff.differences.w1 !== undefined && diff.differences.w2 !== undefined) {
+              // Use witness_maps to get the correct sigla for w2
+              let manuscriptSigla = 'w2';
+              const witnessMap = witnessMaps[verseNumber];
+              if (witnessMap && witnessMap['w2']) {
+                manuscriptSigla = witnessMap['w2'].replace('.docx', '');
+              }
+              newVariations.push({
+                verseNumber: parseInt(verseNumber),
+                word1: diff.differences.w1,
+                word2: diff.differences.w2,
+                position: diff.position,
+                manuscriptSigla: manuscriptSigla
+              });
+            }
+          });
+        });
+        console.log('Final newVariations:', newVariations);
+        setVariations(newVariations);
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'Failed to fetch comparisons');
+        setError(error instanceof Error ? error.message : 'Failed to fetch collation results');
         toast({
-          title: 'Error fetching comparisons',
+          title: 'Error fetching collation results',
           description: error instanceof Error ? error.message : 'Unknown error occurred',
           status: 'error',
           duration: 5000,
@@ -230,7 +175,7 @@ function ManualDifferentiation() {
       }
     }
 
-    fetchData();
+    fetchCollation();
   }, [toast]);
 
   const currentVariation = variations[currentIndex];
@@ -244,18 +189,20 @@ function ManualDifferentiation() {
       setIsLoading(true);
       setError(null);
 
-      const result = await manuscriptService.saveComparison({
+      // Save the comparison result
+      await collationService.saveComparison({
         wordComparison: currentVariation,
         isSignificant,
         variationType,
       });
 
       setCompletedCount(prev => prev + 1);
-      setCurrentIndex(prev => prev + 1);
+      if (currentIndex < variations.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      }
 
       toast({
-        title: 'Variation recorded',
-        description: `Comparison saved with ID: ${result.comparisonId}`,
+        title: 'Comparison saved',
         status: 'success',
         duration: 2000,
         isClosable: true,
@@ -263,10 +210,10 @@ function ManualDifferentiation() {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to save comparison');
       toast({
-        title: 'Error recording variation',
+        title: 'Error saving comparison',
         description: error instanceof Error ? error.message : 'Unknown error occurred',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       });
     } finally {
@@ -275,7 +222,18 @@ function ManualDifferentiation() {
   }
 
   function handleSkip() {
-    setCurrentIndex(prev => prev + 1);
+    if (currentIndex < variations.length - 1) {
+      setSkippedIndices(prev => [...prev, currentIndex]);
+      setCurrentIndex(prev => prev + 1);
+    }
+  }
+
+  function handleGoBackToPreviousSkipped() {
+    if (skippedIndices.length > 0) {
+      const lastSkipped = skippedIndices[skippedIndices.length - 1];
+      setSkippedIndices(prev => prev.slice(0, -1));
+      setCurrentIndex(lastSkipped);
+    }
   }
 
   if (isFetchingData) {
@@ -351,6 +309,18 @@ function ManualDifferentiation() {
                 borderRadius="full"
               />
             </Box>
+
+            {/* Go Back to Previous Skipped Button */}
+            {skippedIndices.length > 0 && (
+              <Button
+                colorScheme="yellow"
+                onClick={handleGoBackToPreviousSkipped}
+                borderRadius="full"
+                mb={4}
+              >
+                Go Back to Previous Skipped
+              </Button>
+            )}
 
             <Box 
               borderWidth={1} 

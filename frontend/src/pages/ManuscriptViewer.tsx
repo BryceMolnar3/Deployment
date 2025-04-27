@@ -77,6 +77,8 @@ function ManuscriptViewer() {
   const verseHeight = useRef<number>(0);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [editedImage, setEditedImage] = useState<string | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   // Theme-based colors
   const boxBg = settings.theme === 'dark' ? 'gray.800' : 'white';
@@ -161,8 +163,8 @@ function ManuscriptViewer() {
         image_filename: 'manuscript_image.jpg'
       }));
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/update`, {
-        method: 'PUT',
+      const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/update-document`, {
+        method: 'POST',
         body: formData
       });
 
@@ -311,32 +313,59 @@ function ManuscriptViewer() {
 
   const handleSave = async () => {
     if (!editedManuscript) return;
-
     try {
       setIsSaving(true);
-      const response = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-manuscript`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editedManuscript)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update manuscript');
+      if (editedImage) {
+        // If a new image is selected, upload with FormData
+        const formData = new FormData();
+        // Convert base64 to blob
+        const response = await fetch(editedImage);
+        const blob = await response.blob();
+        formData.append('image', blob, 'manuscript_image.jpg');
+        formData.append('document', JSON.stringify(editedManuscript));
+        const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-document`, {
+          method: 'POST',
+          body: formData
+        });
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.error || 'Failed to update manuscript');
+        }
+        const updatedManuscript = await uploadResponse.json();
+        setManuscript(updatedManuscript);
+        onEditClose();
+        setEditedImage(null);
+        toast({
+          title: 'Manuscript updated successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        window.location.reload();
+      } else {
+        // No new image, use JSON update
+        const response = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-manuscript`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(editedManuscript)
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update manuscript');
+        }
+        const updatedManuscript = await response.json();
+        setManuscript(updatedManuscript);
+        onEditClose();
+        toast({
+          title: 'Manuscript updated successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+        window.location.reload();
       }
-
-      const updatedManuscript = await response.json();
-      setManuscript(updatedManuscript);
-      onEditClose();
-      
-      toast({
-        title: 'Manuscript updated successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
     } catch (error) {
       toast({
         title: 'Error updating manuscript',
@@ -670,6 +699,60 @@ function ManuscriptViewer() {
                     value={editedManuscript.metadata['Format Description:']}
                     onChange={(e) => handleInputChange('Format Description:', e.target.value)}
                   />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Manuscript Image</FormLabel>
+                  <input
+                    type="file"
+                    ref={editFileInputRef}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                          setEditedImage(e.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                  />
+                  <Box
+                    border="2px dashed"
+                    borderColor="gray.400"
+                    borderRadius="md"
+                    height="200px"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="gray.100"
+                    cursor="pointer"
+                    _hover={{ bg: "gray.200" }}
+                    onClick={() => editFileInputRef.current?.click()}
+                    position="relative"
+                    overflow="hidden"
+                    mb={2}
+                  >
+                    {editedImage ? (
+                      <Image
+                        src={editedImage}
+                        alt="Selected manuscript"
+                        objectFit="contain"
+                        maxH="100%"
+                        maxW="100%"
+                      />
+                    ) : (
+                      <Image
+                        src={editedManuscript.image_filename ? `${API_BASE_URL}/media/${editedManuscript.image_filename}` : ''}
+                        alt="Current manuscript"
+                        objectFit="contain"
+                        maxH="100%"
+                        maxW="100%"
+                        fallback={<VStack spacing={2}><Text color="gray.500" fontSize="lg">Upload image</Text><Text color="gray.400" fontSize="sm">Click to select a file</Text></VStack>}
+                      />
+                    )}
+                  </Box>
                 </FormControl>
 
                 {/* Verses Section */}

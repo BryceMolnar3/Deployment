@@ -36,3 +36,22 @@ class TextVersion(models.Model):
 
     def __str__(self):
         return f"{self.title} - v{self.version_number}"
+
+class WordComparison(models.Model):
+    verse_number = models.IntegerField()
+    word1 = models.CharField(max_length=255)
+    word2 = models.CharField(max_length=255)
+    position = models.IntegerField()
+    manuscript_sigla = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"Verse {self.verse_number}: {self.word1} vs {self.word2}"
+
+class ComparisonResult(models.Model):
+    word_comparison = models.ForeignKey(WordComparison, on_delete=models.CASCADE, related_name='comparison_results')
+    is_significant = models.BooleanField()
+    variation_type = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Comparison {self.id}: {self.variation_type}"

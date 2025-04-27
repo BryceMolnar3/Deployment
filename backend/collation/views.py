@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
-from .models import TextVersion, Manuscript
-from .serializers import TextVersionSerializer, ManuscriptSerializer
+from .models import TextVersion, Manuscript, WordComparison, ComparisonResult
+from .serializers import TextVersionSerializer, ManuscriptSerializer, WordComparisonSerializer, ComparisonResultSerializer
 from .collate import collate_texts
 from pymongo import MongoClient
 from bson.json_util import dumps
@@ -12,6 +12,7 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from datetime import datetime
 
 
 
@@ -79,8 +80,8 @@ def add_version(request):
 @require_http_methods(["GET"])
 def get_documents(request):
     try:
-        # Get all documents from MongoDB
-        cursor = documents.find()
+        # Get all non-draft documents from MongoDB
+        cursor = documents.find({'$or': [{'is_draft': {'$exists': False}}, {'is_draft': False}]})
         # Convert cursor to list and then to JSON
         documents_list = list(cursor)
         # Convert ObjectId to string for JSON serialization
@@ -143,16 +144,21 @@ def create_document(request):
                 cleaned_metadata[cleaned_key] = value
             document_data['metadata'] = cleaned_metadata
         
-        # Check if document with same filename already exists
-        existing_doc = documents.find_one({'filename': document_data['filename']})
+        # Only block if a non-draft document with this filename exists
+        existing_doc = documents.find_one({'filename': document_data['filename'], '$or': [{'is_draft': {'$exists': False}}, {'is_draft': False}]})
         if existing_doc:
             return JsonResponse({'error': 'Document with this filename already exists'}, status=400)
         
         # Handle image upload if present
         if 'image' in request.FILES:
             image_file = request.FILES['image']
-            # Here you would typically save the image to a file storage system
-            # For now, we'll just store the filename
+            import os
+            from django.conf import settings
+            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+            image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+            with open(image_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
             document_data['image_filename'] = image_file.name
         
         # Insert new document
@@ -193,8 +199,13 @@ def create_draft(request):
         # Handle image upload if present
         if 'image' in request.FILES:
             image_file = request.FILES['image']
-            # Here you would typically save the image to a file storage system
-            # For now, we'll just store the filename
+            import os
+            from django.conf import settings
+            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+            image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+            with open(image_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
             document_data['image_filename'] = image_file.name
         
         # Add draft flag to the document
@@ -214,11 +225,18 @@ def create_draft(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
-@require_http_methods(["PUT"])
+@require_http_methods(["PUT", "POST"])
 def update_document(request, filename):
     try:
-        # Get the document data from the form
+        print("=== DEBUG: update_document called ===")
+        print("request.method:", request.method)
+        print("request.POST:", dict(request.POST))
+        print("request.FILES:", request.FILES)
         document_data = json.loads(request.POST.get('document', '{}'))
+        print("document_data:", document_data)
+        # Remove _id field if present to avoid MongoDB immutable field error
+        if '_id' in document_data:
+            del document_data['_id']
         
         # Find the existing document
         existing_doc = documents.find_one({'filename': filename})
@@ -249,9 +267,6 @@ def update_document(request, filename):
             {'filename': filename},
             {'$set': document_data}
         )
-        
-        if result.modified_count == 0:
-            return JsonResponse({'error': 'No changes made to document'}, status=400)
         
         # Get the updated document
         updated_document = documents.find_one({'filename': filename})
@@ -365,99 +380,112 @@ def get_verse(request, ms_id, verse_number):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-@api_view(['POST'])
+    
+@api_view(['GET'])
 def collate_manuscripts(request):
-    """Collate verses between two specific manuscripts."""
+    """Collate verses from all available manuscripts in the database."""
     try:
-        base_id = request.data.get('base_id')
-        comparison_id = request.data.get('comparison_id')
+        # Get all manuscript IDs and their sigla/filename
+        all_manuscripts = list(documents.find({}, {"_id": 1, "sigla": 1, "filename": 1, "verses": 1}))
+        manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+        manuscript_id_to_sigla = {str(doc["_id"]): (doc.get("sigla") or doc.get("filename") or f"Manuscript-{str(doc['_id'])[-6:]}") for doc in all_manuscripts}
 
-        if not base_id or not comparison_id:
-            return JsonResponse({"error": "base_id and comparison_id are required."}, status=400)
-
-        # Fetch the two manuscripts
-        base_manuscript = documents.find_one({"_id": ObjectId(base_id)})
-        comparison_manuscript = documents.find_one({"_id": ObjectId(comparison_id)})
-
-        if not base_manuscript or not comparison_manuscript:
-            return JsonResponse({"error": "One or both manuscripts not found."}, status=404)
+        if len(manuscript_ids) < 2:
+            return JsonResponse({"error": "At least two manuscripts are required for comparison."}, status=400)
 
         collated_verses = {}
+        verse_manuscript_ids = {}  # Track manuscript order for each verse
 
-        # Process base manuscript
-        for verse in base_manuscript.get("verses", []):
-            if len(verse) < 2:
-                continue
-            verse_number = verse[0]
-            verse_text = verse[1]
-            collated_verses.setdefault(verse_number, []).append(verse_text)
+        # Fetch verses from each manuscript
+        for ms_id in manuscript_ids:
+            manuscript = documents.find_one({"_id": ObjectId(ms_id)})
+            if not manuscript:
+                continue  # Skip if not found
 
-        # Process comparison manuscript
-        for verse in comparison_manuscript.get("verses", []):
-            if len(verse) < 2:
-                continue
-            verse_number = verse[0]
-            verse_text = verse[1]
-            collated_verses.setdefault(verse_number, []).append(verse_text)
+            verses = manuscript.get("verses", [])
+            for verse in verses:
+                if not isinstance(verse, dict) or 'verse_number' not in verse or 'verse_text' not in verse:
+                    continue
+                verse_number = verse['verse_number']
+                verse_text = verse['verse_text']
+                if verse_number not in collated_verses:
+                    collated_verses[verse_number] = []
+                    verse_manuscript_ids[verse_number] = []
+                collated_verses[verse_number].append(verse_text)
+                verse_manuscript_ids[verse_number].append(ms_id)
 
-        # Collate verses
+        # Collate each verse
         collated_results = {}
+        witness_maps = {}  # NEW: store witness-to-sigla mapping per verse
         for verse_number, texts in collated_verses.items():
-            if len(texts) < 2:
-                continue  # Need at least two texts to compare
             try:
-                collated_results[verse_number] = collate_texts(texts)
+                if len(texts) > 1:
+                    collation_result = collate_texts(texts)
+                    if collation_result:
+                        collated_results[verse_number] = collation_result
+                        # Build witness map for this verse
+                        witness_map = {}
+                        for i, ms_id in enumerate(verse_manuscript_ids[verse_number]):
+                            sigla = manuscript_id_to_sigla.get(ms_id, f"Manuscript-{ms_id[-6:]}")
+                            witness_map[f"w{i+1}"] = sigla
+                        witness_maps[verse_number] = witness_map
             except Exception as e:
-                print(f"Error collating verse {verse_number}: {e}")
                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
 
-        return JsonResponse(extract_differences(collated_results), safe=False)
+        return JsonResponse({
+            "differences": extract_differences(collated_results) or {},
+            "witness_maps": witness_maps
+        }, safe=False)
 
     except Exception as e:
+        import traceback
+        print("=== ERROR in collate_manuscripts ===")
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
-    
-# @api_view(['GET'])
-# def collate_manuscripts(request):
-#     """Collate verses from all available manuscripts in the database."""
-#     try:
-#         # Get all manuscript IDs
-#         all_manuscripts = list(documents.find({}, {"_id": 1}))
-#         manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
 
-#         if len(manuscript_ids) < 2:
-#             return JsonResponse({"error": "At least two manuscripts are required for comparison."}, status=400)
+@api_view(['POST'])
+def save_comparison(request):
+    if request.method == 'POST':
+        # Extract data from the request body
+        data = request.data
+        print(data)
+        # Create WordComparison instance
+        word_comparison_data = data.get("wordComparison", {})
+        print(word_comparison_data)
+        word_comparison_serializer = WordComparisonSerializer(data=word_comparison_data)
 
-#         collated_verses = {}
+        is_significant = data.get("isSignificant", False)
+        if not is_significant:
+            return Response({"message": "Comparison is not significant, not saved."}, status=status.HTTP_200_OK)
+        
+        if word_comparison_serializer.is_valid():
+            print(word_comparison_serializer.validated_data)
+            # Save WordComparison instance to the database
+            word_comparison_instance = word_comparison_serializer.save()
 
-#         # Fetch verses from each manuscript
-#         for ms_id in manuscript_ids:
-#             manuscript = documents.find_one({"_id": ObjectId(ms_id)})
-#             if not manuscript:
-#                 continue  # Skip if not found
+            timestamp = datetime.now().isoformat()
 
-#             verses = manuscript.get("verses", [])
-#             for verse in verses:
-#                 if len(verse) < 2:
-#                     continue
-#                 verse_number = verse[0]
-#                 verse_text = verse[1]
-#                 if verse_number not in collated_verses:
-#                     collated_verses[verse_number] = []
-#                 collated_verses[verse_number].append(verse_text)
+            # Create ComparisonResult instance
+            comparison_result_data = {
+                "word_comparison": word_comparison_instance.id,
+                "is_significant": is_significant,
+                "variation_type": data.get("variationType", ""),
+                "timestamp": timestamp,
+            }
+            print(comparison_result_data)
+            comparison_result_serializer = ComparisonResultSerializer(data=comparison_result_data)
+            
+            if comparison_result_serializer.is_valid():
+                print(comparison_result_serializer.validated_data)
+                # Save ComparisonResult instance to the database
+                comparison_result_instance = comparison_result_serializer.save()
 
-#         # Collate each verse
-#         collated_results = {}
-#         for verse_number, texts in collated_verses.items():
-#             try:
-#                 collated_results[verse_number] = collate_texts(texts)
-#             except Exception as e:
-#                 print(f"Error collating verse {verse_number}: {e}")
-#                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
-
-#         return JsonResponse(extract_differences(collated_results), safe=False)
-
-#     except Exception as e:
-#         return JsonResponse({"error": str(e)}, status=500)
+                return Response(comparison_result_serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                print(f"serializer errors: {comparison_result_serializer.errors}")
+                return Response(comparison_result_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(word_comparison_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def generate_phylogenetic_tree(request):
@@ -468,16 +496,21 @@ def generate_phylogenetic_tree(request):
         print("\n=== GENERATING PHYLOGENETIC TREE ===")
         print(f"Method: {method}, Format: {output_format}")
         
-        # Get all manuscript IDs from the database
+        # Get all manuscript IDs from the database, EXCLUDING drafts by filename and is_draft field
         all_manuscripts = list(documents.find({}))
-        manuscript_ids = [str(doc["_id"]) for doc in all_manuscripts]
+        filtered_manuscripts = [
+            doc for doc in all_manuscripts
+            if not (
+                (isinstance(doc.get('filename'), str) and 'draft' in doc.get('filename').lower())
+                or doc.get('is_draft') is True
+            )
+        ]
+        manuscript_ids = [str(doc["_id"]) for doc in filtered_manuscripts]
         
-        all_manuscripts = list(documents.find({}))
-        for doc in all_manuscripts:
+        for doc in filtered_manuscripts:
             print(f"📄 ID: {doc['_id']}, filename: {doc.get('filename')}, verses: {len(doc.get('verses', []))}")
 
-
-        print(f"Found {len(manuscript_ids)} manuscripts")
+        print(f"Found {len(manuscript_ids)} manuscripts (excluding drafts)")
         print(f"Manuscript IDs: {manuscript_ids}")
         
         if len(manuscript_ids) < 3:
@@ -504,20 +537,12 @@ def generate_phylogenetic_tree(request):
             print(f"  Found {len(verses)} verses in manuscript")
             
             for verse in verses:
-                if len(verse) < 2:
-                    print(f"  ⚠️ Skipping malformed verse: {verse}")
+                if not isinstance(verse, dict) or 'verse_number' not in verse or 'verse_text' not in verse:
                     continue
-                    
-                verse_number = verse[0]
-                verse_text = verse[1]
-                
-                # Debug first few verses of each manuscript
-                if manuscript_verse_counts[ms_id] < 3:
-                    print(f"  Verse {verse_number}: '{verse_text[:50]}{'...' if len(verse_text) > 50 else ''}'")
-                
+                verse_number = verse['verse_number']
+                verse_text = verse['verse_text']
                 if verse_number not in collated_verses:
                     collated_verses[verse_number] = []
-                
                 collated_verses[verse_number].append({
                     "text": verse_text,
                     "ms_id": ms_id
@@ -574,7 +599,7 @@ def generate_phylogenetic_tree(request):
                     if len(collated_results) < 2 or verse_number in ['1', '2', '10']:
                         print(f"\nCollating verse {verse_number} with {len(texts)} manuscript versions:")
                         for i, (text, ms_id) in enumerate(zip(texts, ms_ids_for_verse)):
-                            ms_name = next((m.get('filename', f"MS-{ms_id[-6:]}") for m in all_manuscripts if str(m["_id"]) == ms_id), f"MS-{ms_id[-6:]}")
+                            ms_name = next((m.get('filename', f"MS-{ms_id[-6:]}") for m in filtered_manuscripts if str(m["_id"]) == ms_id), f"MS-{ms_id[-6:]}")
                             print(f"  MS {i+1}: '{text[:50]}{'...' if len(text) > 50 else ''}' ({ms_name})")
                     
                     # Only collate if texts are different
@@ -665,3 +690,102 @@ def generate_phylogenetic_tree(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_drafts(request):
+    try:
+        # Get all documents marked as drafts
+        drafts = list(documents.find({'is_draft': True}))
+        
+        # Convert ObjectId to string for JSON serialization
+        for draft in drafts:
+            draft['_id'] = str(draft['_id'])
+        
+        return JsonResponse(drafts, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def replace_draft(request):
+    try:
+        import os
+        from django.conf import settings
+        # Get the document data from the form
+        document_data = json.loads(request.POST.get('document', '{}'))
+        
+        # Validate metadata field names
+        if 'metadata' in document_data:
+            # Replace any dots in field names with spaces
+            metadata = document_data['metadata']
+            cleaned_metadata = {}
+            for key, value in metadata.items():
+                cleaned_key = key.replace('.', ' ').strip()
+                cleaned_metadata[cleaned_key] = value
+            document_data['metadata'] = cleaned_metadata
+        
+        # Find the existing draft
+        existing_doc = documents.find_one({'filename': document_data['filename'], 'is_draft': True})
+        if not existing_doc:
+            return JsonResponse({'error': 'Draft not found'}, status=404)
+        
+        # Handle image upload if present
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+            image_path = os.path.join(settings.MEDIA_ROOT, image_file.name)
+            with open(image_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
+            document_data['image_filename'] = image_file.name
+        else:
+            # If no image is uploaded, remove image_filename if it exists
+            if 'image_filename' in document_data:
+                del document_data['image_filename']
+            # If the old draft had an image, delete the file from MEDIA_ROOT
+            if existing_doc.get('image_filename'):
+                image_path = os.path.join(settings.MEDIA_ROOT, existing_doc['image_filename'])
+                if os.path.exists(image_path):
+                    try:
+                        os.remove(image_path)
+                    except Exception as e:
+                        print(f"Warning: Could not delete old image file: {image_path}. Error: {e}")
+        
+        # Add draft flag to the document
+        document_data['is_draft'] = True
+        
+        # Replace the existing draft
+        result = documents.replace_one(
+            {'filename': document_data['filename'], 'is_draft': True},
+            document_data
+        )
+        
+        if result.modified_count == 0:
+            return JsonResponse({'error': 'Failed to replace draft'}, status=500)
+        
+        # Get the updated document
+        updated_document = documents.find_one({'filename': document_data['filename']})
+        updated_document['_id'] = str(updated_document['_id'])
+        
+        return JsonResponse(updated_document, status=200)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_draft(request, filename):
+    try:
+        # Find the draft
+        draft = documents.find_one({'filename': filename, 'is_draft': True})
+        if not draft:
+            return JsonResponse({'error': 'Draft not found'}, status=404)
+        # Delete the draft
+        result = documents.delete_one({'filename': filename, 'is_draft': True})
+        if result.deleted_count == 0:
+            return JsonResponse({'error': 'Failed to delete draft'}, status=500)
+        return JsonResponse({'message': 'Draft deleted successfully'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
