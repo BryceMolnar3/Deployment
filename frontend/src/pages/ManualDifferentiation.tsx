@@ -232,27 +232,23 @@ function ManualDifferentiation() {
         const data = await collationService.collateManuscripts();
         setCollationResults(data);
         
-        // Convert collation results to word comparisons
+        console.log('Raw collation API response:', data);
         const newVariations: WordComparison[] = [];
-        Object.entries(data.differences).forEach(([verseNumber, difference]) => {
-          if (!difference.table) return; // Skip if no table
-          difference.table.forEach((column, position) => {
-            if (column.length > 1 && column.some(cell => cell?.t !== column[0]?.t)) {
-              const baseWord = column[0]?.t || '[missing]';
-              column.slice(1).forEach((cell, idx) => {
-                if (cell?.t !== baseWord) {
-                  newVariations.push({
-                    verseNumber: parseInt(verseNumber),
-                    word1: baseWord,
-                    word2: cell?.t || '[missing]',
-                    position: position + 1,
-                    manuscriptSigla: difference.witnesses ? difference.witnesses[idx + 1] : ''
-                  });
-                }
+        Object.entries(data.differences).forEach(([verseNumber, differenceList]) => {
+          if (!Array.isArray(differenceList)) return;
+          differenceList.forEach(diff => {
+            if (diff.differences && diff.differences.w1 !== undefined && diff.differences.w2 !== undefined) {
+              newVariations.push({
+                verseNumber: parseInt(verseNumber),
+                word1: diff.differences.w1,
+                word2: diff.differences.w2,
+                position: diff.position,
+                manuscriptSigla: 'w2' // or use diff.witness if available
               });
             }
           });
         });
+        console.log('Final newVariations:', newVariations);
         setVariations(newVariations);
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Failed to fetch collation results');

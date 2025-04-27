@@ -398,7 +398,18 @@ def collate_manuscripts(request):
         collated_results = {}
         for verse_number, texts in collated_verses.items():
             try:
-                collated_results[verse_number] = collate_texts(texts)
+                print(f'--- Collating these texts for verse {verse_number} ---')
+                for t in texts:
+                    print(repr(t))
+                # Only collate if we have multiple manuscripts
+                if len(texts) > 1:
+                    # Perform collation
+                    collation_result = collate_texts(texts)
+                    print(f'Collation result for verse {verse_number}:', collation_result)
+                    if collation_result:
+                        collated_results[verse_number] = collation_result
+                else:
+                    print(f'Skipping verse {verse_number}: Only {len(texts)} manuscript version')
             except Exception as e:
                 print(f"Error collating verse {verse_number}: {e}")
                 collated_results[verse_number] = {"error": f"Collation failed: {str(e)}"}
