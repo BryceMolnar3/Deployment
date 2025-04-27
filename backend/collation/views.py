@@ -445,9 +445,15 @@ def generate_phylogenetic_tree(request):
         print("\n=== GENERATING PHYLOGENETIC TREE ===")
         print(f"Method: {method}, Format: {output_format}")
         
-        # Get all manuscript IDs from the database, EXCLUDING drafts
+        # Get all manuscript IDs from the database, EXCLUDING drafts by filename and is_draft field
         all_manuscripts = list(documents.find({}))
-        filtered_manuscripts = [doc for doc in all_manuscripts if not (isinstance(doc.get('filename'), str) and 'draft' in doc.get('filename').lower())]
+        filtered_manuscripts = [
+            doc for doc in all_manuscripts
+            if not (
+                (isinstance(doc.get('filename'), str) and 'draft' in doc.get('filename').lower())
+                or doc.get('is_draft') is True
+            )
+        ]
         manuscript_ids = [str(doc["_id"]) for doc in filtered_manuscripts]
         
         for doc in filtered_manuscripts:
