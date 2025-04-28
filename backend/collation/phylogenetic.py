@@ -2,350 +2,273 @@ import matplotlib
 matplotlib.use('Agg')  # Use non-GUI backend for server rendering
 import matplotlib.pyplot as plt
 import numpy as np
-import json
-from scipy.cluster.hierarchy import linkage, dendrogram
-from scipy.spatial.distance import squareform
-from io import BytesIO
 import base64
-from pymongo import MongoClient
-from bson import ObjectId
 import re
+import random
+from io import BytesIO
 from collections import defaultdict
-import nltk
+import math
 
+from django.conf import settings
+from pymongo import MongoClient
+from .models import ComparisonResult
 
 class PhylogeneticTreeBuilder:
     def __init__(self, mongo_uri='mongodb://localhost:27017/', db_name='document_db'):
         self.client = MongoClient(mongo_uri)
         self.db = self.client[db_name]
         self.documents = self.db['documents']
+    
+    def _build_presence_absence_map(self):
+        """
+        Build a dictionary that maps each manuscript_sigla -> set of difference IDs.
+        A 'difference ID' is a string describing a unique variant location, e.g.:
+            "verse10_pos3_abc_vs_ab"
 
-    def get_manuscript_info(self, ms_ids):
-        manuscripts = {}
-        existing_sigla = set()
+        We also ensure that there is a base case labeled "1" with an *empty* set of
+        differences, so it always appears in the dataset.
+        """
+        from django.db.models import F
 
-        for ms_id in ms_ids:
-            try:
-                doc = self.documents.find_one({"_id": ObjectId(ms_id)})
-                if doc:
-                    sigla = doc.get('metadata', {}).get('Sigla:') \
-                        or doc.get('metadata', {}).get('Other Names:') \
-                        or doc.get('metadata', {}).get('MS ID:')
+        # Gather all "significant" ComparisonResults
+        significant_comps = (
+            ComparisonResult.objects
+            .filter(is_significant=True)
+            .select_related('word_comparison')
+        )
 
-                    if not sigla:
-                        filename = doc.get('filename')
-                        if filename and isinstance(filename, str):
-                            parts = filename.split('/')
-                            short_name = parts[-1]
-                            if len(short_name) > 20:
-                                short_name = short_name[:20] + "..."
-                            sigla = short_name
-                        else:
-                            sigla = f"MS-{str(ms_id)[-6:]}"
+        presence_map = defaultdict(set)  # ms_label -> set of difference IDs
 
-                    # Ensure uniqueness
-                    original_sigla = sigla
-                    counter = 1
-                    while sigla in existing_sigla:
-                        sigla = f"{original_sigla}_{counter}"
-                        counter += 1
-                    existing_sigla.add(sigla)
+        for comp in significant_comps:
+            wc = comp.word_comparison
+            if not wc:
+                continue
 
-                    manuscripts[str(ms_id)] = {
-                        'sigla': sigla,
-                        'ms_id': str(ms_id)
-                    }
-            except Exception as e:
-                print(f"Error getting info for manuscript {ms_id}: {e}")
-                manuscripts[str(ms_id)] = {
-                    'sigla': f"MS-{str(ms_id)[-6:]}",
-                    'ms_id': str(ms_id)
-                }
-        return manuscripts
+            # Normalize the manuscript_sigla (remove .docx, etc.)
+            ms_label = re.sub(r'\.docx$', '', wc.manuscript_sigla or '', flags=re.IGNORECASE).strip()
 
-    def calculate_distance_matrix(self, collation_data, manuscripts):
-        ms_ids = list(manuscripts.keys())
-        n = len(ms_ids)
-        distance_matrix = np.zeros((n, n))
-        comparison_counts = np.zeros((n, n))
-        
-        print(f"Processing distances for {n} manuscripts using complete verse text comparison")
-        
-        # Track verse texts for each manuscript
-        manuscript_verse_texts = {ms_idx: {} for ms_idx in range(n)}
-        
-        # Process each verse to extract full text for each manuscript
-        for verse_number, collation_result in collation_data.items():
-            try:
-                print(f"\n=== Processing verse {verse_number} ===")
-                
-                if isinstance(collation_result, str):
-                    try:
-                        collation_result = json.loads(collation_result)
-                    except json.JSONDecodeError:
-                        print(f"  Failed to parse JSON for verse {verse_number}")
-                        continue
-                
-                # Check if we have sufficient data
-                table = collation_result.get('table', [])
-                witnesses = collation_result.get('witnesses', [])
-                
-                if not table or len(witnesses) < 2:
-                    print(f"  Insufficient data for verse {verse_number}: {len(table)} columns, {len(witnesses)} witnesses")
-                    continue
-                
-                print(f"  Table has {len(table)} columns, {len(witnesses)} witnesses: {witnesses}")
-                
-                # Create a mapping of witness indices to manuscript indices
-                witness_to_ms = {}
-                for i, witness in enumerate(witnesses):
-                    match = re.match(r'w(\d+)', witness)
-                    if match:
-                        idx = int(match.group(1)) - 1
-                        if idx < len(ms_ids):
-                            witness_to_ms[i] = idx
-                            print(f"  Mapped witness {witness} (index {i}) to manuscript {idx}: {manuscripts[ms_ids[idx]]['sigla']}")
-                
-                # Initialize text buffers for each manuscript
-                # Initialize text buffers for each manuscript
-                verse_texts = {ms_idx: [] for ms_idx in range(n)}
+            # Construct a unique difference ID
+            diff_id = f"verse{wc.verse_number}_pos{wc.position}_{wc.word1}_vs_{wc.word2}"
 
-                # Reconstruct full verse text per manuscript by iterating over each column
-                for column in table:
-                    for cell in column:
-                        if not cell:  # This skips None and empty lists
-                            continue
-                        for token in cell:
-                            sigil = token.get('_sigil')
-                            match = re.match(r'w(\d+)', sigil)
-                            if match:
-                                ms_idx = int(match.group(1)) - 1
-                                if 0 <= ms_idx < n:
-                                    text = token.get('t', '')
-                                    if text:
-                                        verse_texts[ms_idx].append(text.strip())
+            # Add it to that manuscript's set of differences
+            presence_map[ms_label].add(diff_id)
 
+        # ----------- ENSURE BASE CASE "1" EXISTS WITH NO DIFFERENCES -----------
+        # If "1" wasn't present, or had differences, we override it with an empty set.
+        presence_map["1"] = set()
 
-                
-                # Join the text fragments for each manuscript
-                for ms_idx, tokens in verse_texts.items():
-                    if tokens:
-                        full_text = ' '.join(tokens).strip()
-                        if full_text:
-                            manuscript_verse_texts[ms_idx][verse_number] = full_text
-                            # Print the first 50 chars of each text
-                            truncated = full_text[:50] + ('...' if len(full_text) > 50 else '')
-                            print(f"  MS {ms_idx} ({manuscripts[ms_ids[ms_idx]]['sigla']}): {truncated}")
-                
-            except Exception as e:
-                print(f"Error processing verse {verse_number}: {e}")
-                import traceback
-                traceback.print_exc()
-        
-        # Compare manuscript texts
-        print("\n=== Comparing complete verse texts between manuscripts ===")
-        
-        for i in range(n):
-            for j in range(i+1, n):
-                # Find common verses
-                common_verses = set(manuscript_verse_texts[i].keys()) & set(manuscript_verse_texts[j].keys())
-                
-                if not common_verses:
-                    print(f"No common verses between MS {i} ({manuscripts[ms_ids[i]]['sigla']}) and MS {j} ({manuscripts[ms_ids[j]]['sigla']})")
-                    continue
-                
-                print(f"Comparing MS {i} ({manuscripts[ms_ids[i]]['sigla']}) with MS {j} ({manuscripts[ms_ids[j]]['sigla']}): {len(common_verses)} common verses")
-                
-                total_sim = 0
-                
-                # Compare each common verse
-                for verse in common_verses:
-                    text1 = manuscript_verse_texts[i][verse]
-                    text2 = manuscript_verse_texts[j][verse]
-                    
-                    # Calculate similarity as 1 - Levenshtein distance / max length
-                    # (so identical texts have similarity 1, completely different have 0)
-                    distance = nltk.edit_distance(text1, text2)
-                    max_len = max(len(text1), len(text2))
-                    if max_len > 0:
-                        similarity = 1 - (distance / max_len)
-                    else:
-                        similarity = 1.0
-                    
-                    # Print a sample of verse comparisons
-                    if verse in ['1', '2', '3']:
-                        print(f"  Verse {verse}: similarity {similarity:.4f}")
-                        print(f"    Text1: {text1}")
-                        print(f"    Text2: {text2}")
-                    
-                    total_sim += similarity
-                    
-                    # Update the matrices
-                    distance_matrix[i, j] += (1 - similarity)
-                    distance_matrix[j, i] += (1 - similarity)
-                    comparison_counts[i, j] += 1
-                    comparison_counts[j, i] += 1
-        
-        # Calculate average distances
-        with np.errstate(divide='ignore', invalid='ignore'):
-            avg_distance_matrix = np.divide(distance_matrix, comparison_counts, 
-                                        out=np.zeros_like(distance_matrix), 
-                                        where=comparison_counts!=0)
-        
-        # Fill in missing comparisons
-        no_comparison_mask = comparison_counts == 0
-        if np.any(no_comparison_mask):
-            valid_distances = avg_distance_matrix[~no_comparison_mask & ~np.eye(n, dtype=bool)]
-            
-            if len(valid_distances) > 0:
-                avg_dist = np.mean(valid_distances)
-                base_dist = min(0.9, avg_dist * 1.2)
-            else:
-                base_dist = 0.7  # Slightly lower default to avoid extremes
-            
-            # Add random variations
-            np.random.seed(42)
-            variations = np.random.uniform(-0.1, 0.1, np.sum(no_comparison_mask))
-            fill_values = np.clip(base_dist + variations, 0.5, 0.95)
-            
-            avg_distance_matrix[no_comparison_mask] = fill_values
-        
-        # Ensure diagonal is zero
-        np.fill_diagonal(avg_distance_matrix, 0)
-        
-        # Ensure matrix is symmetric
-        for i in range(n):
-            for j in range(i+1, n):
-                avg = (avg_distance_matrix[i,j] + avg_distance_matrix[j,i]) / 2
-                avg_distance_matrix[i,j] = avg_distance_matrix[j,i] = avg
-        
-        # Print the complete distance matrix
-        print("\n=== Complete distance matrix ===")
-        print("    " + "  ".join(f"{manuscripts[ms_id]['sigla'][:5]}" for ms_id in ms_ids))
-        for i, ms_id1 in enumerate(ms_ids):
-            print(f"{manuscripts[ms_id1]['sigla'][:5]}  ", end="")
-            for j in range(n):
-                print(f"{avg_distance_matrix[i, j]:.4f}  ", end="")
-            print()
-        
-        # Scale the matrix for better visualization
-        min_val = avg_distance_matrix[~np.eye(n, dtype=bool)].min()
-        max_val = avg_distance_matrix.max()
-        
-        print(f"\nDistance matrix stats: min={min_val:.4f}, max={max_val:.4f}, mean={avg_distance_matrix[~np.eye(n, dtype=bool)].mean():.4f}")
-        # Apply  with noise to create a more interesting tree
+        return presence_map
 
+    def _compute_distance_matrix(self, presence_map):
+        """
+        Instead of Jaccard, we'll treat each set_i as 'positions that differ'.
+        Then, the distance between two manuscripts i & j is:
         
-        labels = [manuscripts[ms_id]['sigla'] for ms_id in ms_ids]
-        return avg_distance_matrix, labels
+            dist(i,j) = number_of_positions_where_i_and_j_disagree / TOTAL_WORD_COUNT
 
-    def parse_collation_results(self, collation_results):
-        parsed_results = {}
-        for verse_number, result in collation_results.items():
-            if isinstance(result, str):
-                try:
-                    parsed_results[verse_number] = json.loads(result)
-                except json.JSONDecodeError:
-                    print(f"Could not parse JSON for verse {verse_number}")
-            else:
-                parsed_results[verse_number] = result
-        return parsed_results
+        i.e. the size of the symmetric difference of their difference sets,
+        divided by total text length. If one MS is identical to base "1"
+        (which has 0 differences), that distance is (1 / TOTAL_WORD_COUNT), etc.
+        """
+        
+        TOTAL_WORD_COUNT = 200  # Adjust to match your real text lengths.
 
-    def generate_tree(self, collation_results, ms_ids, method='average', output_format='base64'):
-        manuscripts = self.get_manuscript_info(ms_ids)
-        valid_ms_ids = [ms_id for ms_id in ms_ids if ms_id in manuscripts]
-
-        if len(valid_ms_ids) < 3:
-            raise ValueError("At least three valid manuscripts are required to build a tree")
-
-        parsed_results = self.parse_collation_results(collation_results)
-        distance_matrix, labels = self.calculate_distance_matrix(parsed_results, manuscripts)
-        
-        # Ensure the distance matrix has valid values
-        if np.isnan(distance_matrix).any() or np.isinf(distance_matrix).any():
-            print("Warning: Distance matrix contains NaN or infinite values. Replacing with zeros.")
-            distance_matrix = np.nan_to_num(distance_matrix)
-        
-        # Convert the redundant distance matrix to condensed form
-        try:
-            condensed_dist = squareform(distance_matrix)
-        except ValueError as e:
-            print(f"Error in squareform: {e}")
-            print(f"Distance matrix: {distance_matrix}")
-            raise
-        
-        # Try different linkage methods to find the best tree
-        linkage_methods = [method, 'ward', 'complete', 'average', 'single']
-        linked = None
-        
-        for method_try in linkage_methods:
-            try:
-                linked = linkage(condensed_dist, method=method_try)
-                print(f"Successfully created linkage with method: {method_try}")
-                method = method_try  # Remember which method worked
-                break
-            except Exception as e:
-                print(f"Error in linkage with method {method_try}: {e}")
-        
-        if linked is None:
-            raise ValueError("Could not create linkage with any method")
-        
-        # Generate figure with more styling
-        fig_width = max(12, len(labels) * 0.7)
-        fig_height = max(8, len(labels) * 0.4)
-        
-        # Set up a clean, professional style
-        plt.style.use('seaborn-v0_8-whitegrid')
-        plt.figure(figsize=(fig_width, fig_height), dpi=100)
-        
-        # Set up custom colors
-        plt.rcParams['lines.linewidth'] = 2.5
-        
-        try:
-            # Create the dendrogram with improved styling
-            dend = dendrogram(
-                linked,
-                orientation='right',
-                labels=labels,
-                distance_sort='descending',
-                show_leaf_counts=True,
-                color_threshold=0.6 * max(linked[:,2]),  # Color threshold for better visual groups
-                leaf_font_size=10,
-                above_threshold_color='steelblue'
+        labels = sorted(presence_map.keys())
+        n = len(labels)
+        if n < 2:
+            raise ValueError(
+                "Not enough manuscripts to build a distance matrix; only the base '1' found."
             )
-            
-            # Improve the plot appearance
-            plt.title(f'Manuscript Relationship Tree ({len(labels)} manuscripts)', fontsize=16, fontweight='bold')
-            plt.xlabel('Textual Distance', fontsize=14)
-            plt.grid(axis='x', linestyle='--', alpha=0.7)
-            
-            # Adjust ticks for better readability
-            plt.tick_params(axis='both', which='major', labelsize=10)
-            
-            # Add annotation about methodology
-            plt.figtext(0.02, 0.02, 
-                    f"Tree generated using {method} linkage method based on textual variations", 
-                    fontsize=8, alpha=0.7)
-            
-            # Adjust axes
-            ax = plt.gca()
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['bottom'].set_linewidth(1.5)
-            ax.spines['left'].set_linewidth(1.5)
-            
-            # Add tight layout for better spacing
-            plt.tight_layout()
-            
-        except Exception as e:
-            print(f"Error in dendrogram generation: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
 
-        # Save figure to buffer with higher quality
+        distance_matrix = np.zeros((n, n), dtype=float)
+
+        for i in range(n):
+            for j in range(i+1, n):
+                set_i = presence_map[labels[i]]
+                set_j = presence_map[labels[j]]
+                
+                diff_count = len(set_i.symmetric_difference(set_j))
+                dist = diff_count / TOTAL_WORD_COUNT
+
+                distance_matrix[i, j] = dist
+                distance_matrix[j, i] = dist
+
+        return distance_matrix, labels
+
+    def _max_pairwise_dist(self, clusterA, clusterB, distance_matrix):
+        """
+        For merging two clusters A and B in complete-linkage, the diameter is:
+          max( clusterA.diameter, clusterB.diameter, any pairwise dist in A x B )
+        """
+        max_d = max(clusterA["diameter"], clusterB["diameter"])
+        for x in clusterA["items"]:
+            for y in clusterB["items"]:
+                max_d = max(max_d, distance_matrix[x, y])
+        return max_d
+
+    def _complete_linkage_clustering(self, distance_matrix, labels):
+        """
+        Manual complete-linkage. Each node is a dict:
+          {
+            'items': list of leaf indices,
+            'diameter': float,
+            'left': child node or None,
+            'right': child node or None,
+            'label': string or None if leaf
+          }
+        """
+        n = len(labels)
+        # Initially, each manuscript is a leaf
+        clusters = []
+        for i in range(n):
+            clusters.append({
+                "items": [i],
+                "diameter": 0.0,
+                "left": None,
+                "right": None,
+                "label": labels[i],  # leaf label
+            })
+
+        # Merge until one remains
+        while len(clusters) > 1:
+            best_pair = None
+            best_diameter = math.inf
+
+            # Find the pair that yields smallest new diameter
+            for i in range(len(clusters)):
+                for j in range(i+1, len(clusters)):
+                    merged_diam = self._max_pairwise_dist(clusters[i], clusters[j], distance_matrix)
+                    if merged_diam < best_diameter:
+                        best_diameter = merged_diam
+                        best_pair = (i, j)
+
+            i, j = best_pair
+            A = clusters[i]
+            B = clusters[j]
+            merged = {
+                "items": A["items"] + B["items"],
+                "diameter": best_diameter,
+                "left": A,
+                "right": B,
+                "label": None,  # internal node => no label
+            }
+
+            # Remove them and add the merged
+            if i > j:
+                i, j = j, i
+            del clusters[j]
+            del clusters[i]
+            clusters.append(merged)
+
+        return clusters[0]  # root
+
+    def generate_complete_linkage_tree_from_significant_differences(self):
+        """
+        Returns the root of the final binary tree (dict).
+        """
+        presence_map = self._build_presence_absence_map()
+        if not presence_map:
+            raise ValueError("No significant differences found, and no manuscripts labeled '1' either.")
+
+        distance_matrix, labels = self._compute_distance_matrix(presence_map)
+        root = self._complete_linkage_clustering(distance_matrix, labels)
+        return root
+
+    def print_tree(self, node, indent=0):
+        """
+        Print the tree structure to console for debugging.
+        """
+        prefix = "  " * indent
+        if node["label"] is not None:
+            print(f"{prefix}- Leaf: label={node['label']}, diameter={node['diameter']:.3f}")
+        else:
+            print(f"{prefix}+ Node: diameter={node['diameter']:.3f}, items={node['items']}")
+            self.print_tree(node["left"], indent+1)
+            self.print_tree(node["right"], indent+1)
+
+    def export_newick(self, node):
+        """
+        Convert the final tree structure into a Newick string for external usage.
+        Each internal node => branch length = diameter/2 (you can adjust).
+        """
+        if node["label"] is not None:
+            safe_label = re.sub(r'[,:();\s]+', '_', node["label"])
+            return safe_label
+
+        left_sub = self.export_newick(node["left"])
+        right_sub = self.export_newick(node["right"])
+        dist = node["diameter"] / 2.0
+        return f"({left_sub}:{dist:.4f},{right_sub}:{dist:.4f})"
+
+    def generate_newick_complete_linkage_tree(self):
+        root = self.generate_complete_linkage_tree_from_significant_differences()
+        newick = self.export_newick(root) + ";"
+        return newick
+
+    def generate_cluster_tree_image(self, output_format='base64'):
+        """
+        Build the complete-linkage tree, do a horizontal "phylogram" layout,
+        and return the resulting image (as base64 or raw PNG).
+        """
+        try:
+            root = self.generate_complete_linkage_tree_from_significant_differences()
+        except ValueError as e:
+            raise ValueError(str(e))
+
+        # 1) Assign y-positions (top-down index for leaves)
+        self._assign_y_positions(root, current_y=0)
+        # 2) x = node["diameter"]
+        self._assign_x_positions(root)
+
+        # 3) Gather for plotting
+        all_nodes = []
+        self._gather_nodes(root, all_nodes)
+
+        # 4) Decide figure size: scale by # of leaves and max distance
+        num_leaves = sum(1 for n in all_nodes if n["label"] is not None)
+        max_x = max(n["x"] for n in all_nodes)
+        fig_width = max(10, max_x * 10)         # make width scale by distance
+        fig_height = max(4, num_leaves * 0.7)   # make height scale by # leaves
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+        ax.set_title("Complete-Linkage Cluster Tree", fontsize=14)
+        ax.set_xlabel("Distance (Fraction of Text)")
+        ax.set_ylabel("Manuscript / Internal Node")
+
+        # 5) Draw edges
+        self._draw_edges(root, ax)
+
+        # 6) Label nodes
+        label_offset = 0.02  # shift leaves right by this fraction
+        for node in all_nodes:
+            x = node["x"]
+            y = node["y"]
+            if node["label"] is not None:
+                # Leaf => label in black
+                ax.text(x + label_offset, y, f"{node['label']}",
+                        ha="left", va="center", color="black", fontsize=10)
+            else:
+                # Internal => show diameter in gray
+                ax.text(x + label_offset, y, f"{node['diameter']:.3f}",
+                        ha="left", va="center", color="gray", fontsize=8)
+
+        # 7) Tweak axes
+        xs = [n["x"] for n in all_nodes]
+        ys = [n["y"] for n in all_nodes]
+        ax.set_xlim(left=min(xs) - 0.1, right=max(xs) + .15)
+        ax.set_ylim(bottom=min(ys) - 1, top=max(ys) + 1)
+
+        ax.invert_yaxis()  # Leaves on top
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.yaxis.set_visible(False)
+
+        plt.tight_layout()
+
+        # 8) Output
         buffer = BytesIO()
-        plt.savefig(buffer, format='png', dpi=200, bbox_inches='tight')
+        plt.savefig(buffer, format='png', dpi=150)
         plt.close()
         buffer.seek(0)
 
@@ -354,36 +277,55 @@ class PhylogeneticTreeBuilder:
         else:
             return buffer.getvalue()
 
-    def create_newick_tree(self, collation_results, ms_ids, method='average'):
-        manuscripts = self.get_manuscript_info(ms_ids)
-        valid_ms_ids = [ms_id for ms_id in ms_ids if ms_id in manuscripts]
+    # ---------------------------------------------------
+    # HELPER FUNCTIONS FOR LAYOUT & DRAWING
+    # ---------------------------------------------------
 
-        if len(valid_ms_ids) < 3:
-            raise ValueError("At least three valid manuscripts are required to build a tree")
+    def _assign_y_positions(self, node, current_y=0):
+        if node["label"] is not None:
+            node["y"] = float(current_y)
+            return current_y + 1
+        else:
+            next_y = self._assign_y_positions(node["left"], current_y)
+            next_y = self._assign_y_positions(node["right"], next_y)
+            left_y = node["left"]["y"]
+            right_y = node["right"]["y"]
+            node["y"] = (left_y + right_y) / 2.0
+            return next_y
 
-        parsed_results = self.parse_collation_results(collation_results)
-        distance_matrix, labels = self.calculate_distance_matrix(parsed_results, manuscripts)
-        
-        # Handle invalid values
-        distance_matrix = np.nan_to_num(distance_matrix)
-        
-        condensed_dist = squareform(distance_matrix)
-        linked = linkage(condensed_dist, method=method)
+    def _assign_x_positions(self, node):
+        node["x"] = float(node["diameter"])
+        if node["left"] is not None:
+            self._assign_x_positions(node["left"])
+        if node["right"] is not None:
+            self._assign_x_positions(node["right"])
 
-        def to_newick(node, labels, Z, n):
-            if node < n:
-                # Convert labels to safe labels for Newick format
-                safe_label = str(labels[node]).replace('(', '_').replace(')', '_')
-                safe_label = safe_label.replace(',', '_').replace(':', '_').replace(';', '_')
-                return safe_label
-            else:
-                node_idx = int(node - n)
-                left = int(Z[node_idx, 0])
-                right = int(Z[node_idx, 1])
-                dist_left = Z[node_idx, 2] / 2
-                dist_right = Z[node_idx, 2] / 2
-                return f"({to_newick(left, labels, Z, n)}:{dist_left},{to_newick(right, labels, Z, n)}:{dist_right})"
+    def _gather_nodes(self, node, collection):
+        collection.append(node)
+        if node["left"] is not None:
+            self._gather_nodes(node["left"], collection)
+        if node["right"] is not None:
+            self._gather_nodes(node["right"], collection)
 
-        n = len(labels)
-        newick = to_newick(2*n-2, labels, linked, n) + ";"
-        return newick
+    def _draw_edges(self, node, ax):
+        """
+        Draw edges from this node to children with mild alpha or color for clarity.
+        """
+        if node["left"] is not None:
+            # Optional: random color or just black with alpha
+            #edge_color = f"#{random.randint(0, 0xFFFFFF):06x}"
+            edge_color = "black"
+            self._draw_line(ax, node, node["left"], color=edge_color)
+            self._draw_edges(node["left"], ax)
+
+        if node["right"] is not None:
+            #edge_color = f"#{random.randint(0, 0xFFFFFF):06x}"
+            edge_color = "black"
+            self._draw_line(ax, node, node["right"], color=edge_color)
+            self._draw_edges(node["right"], ax)
+
+    def _draw_line(self, ax, parent, child, color='black'):
+        px, py = parent["x"], parent["y"]
+        cx, cy = child["x"], child["y"]
+        # L-shape for horizontal phylogram
+        ax.plot([px, cx], [py, cy], color=color, linewidth=1, alpha=0.8)

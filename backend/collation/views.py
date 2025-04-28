@@ -511,204 +511,38 @@ def save_comparison(request):
 
 @api_view(['GET'])
 def generate_phylogenetic_tree(request):
-    """Generate a phylogenetic tree from all available manuscripts."""
+    """
+    Generate a phylogenetic tree from the manuscripts involved in significant
+    differences (ComparisonResult where is_significant=True).
+    """
     method = request.GET.get('method', 'average')
     output_format = request.GET.get('format2', 'base64')
     try:
-        print("\n=== GENERATING PHYLOGENETIC TREE ===")
+        print("\n=== GENERATING PHYLOGENETIC TREE (BASED ON SIGNIFICANT DIFFERENCES) ===")
         print(f"Method: {method}, Format: {output_format}")
-        
-        # Get all manuscript IDs from the database, EXCLUDING drafts by filename and is_draft field
-        all_manuscripts = list(documents.find({}))
-        filtered_manuscripts = [
-            doc for doc in all_manuscripts
-            if not (
-                (isinstance(doc.get('filename'), str) and 'draft' in doc.get('filename').lower())
-                or doc.get('is_draft') is True
-            )
-        ]
-        manuscript_ids = [str(doc["_id"]) for doc in filtered_manuscripts]
-        
-        for doc in filtered_manuscripts:
-            print(f"📄 ID: {doc['_id']}, filename: {doc.get('filename')}, verses: {len(doc.get('verses', []))}")
 
-        print(f"Found {len(manuscript_ids)} manuscripts (excluding drafts)")
-        print(f"Manuscript IDs: {manuscript_ids}")
-        
-        if len(manuscript_ids) < 3:
-            print("ERROR: Not enough manuscripts (minimum 3 required)")
-            return JsonResponse({"error": "At least three manuscripts are required in the database to build a phylogenetic tree."}, status=400)
-        
-        # First, collate the manuscripts
-        collated_verses = {}
-        manuscript_verse_counts = {ms_id: 0 for ms_id in manuscript_ids}
-
-        # Fetch verses from each manuscript
-        print("\n=== COLLECTING VERSES FROM MANUSCRIPTS ===")
-        for i, ms_id in enumerate(manuscript_ids):
-            manuscript = documents.find_one({"_id": ObjectId(ms_id)})
-            
-            if not manuscript:
-                print(f"WARNING: Manuscript {ms_id} not found in database")
-                continue
-            
-            ms_name = manuscript.get('filename', f"Manuscript-{ms_id[-6:]}")
-            print(f"\nProcessing manuscript {i+1}/{len(manuscript_ids)}: {ms_name}")
-            
-            verses = manuscript.get("verses", [])
-            print(f"  Found {len(verses)} verses in manuscript")
-            
-            for verse in verses:
-                if not isinstance(verse, dict) or 'verse_number' not in verse or 'verse_text' not in verse:
-                    continue
-                verse_number = verse['verse_number']
-                verse_text = verse['verse_text']
-                if verse_number not in collated_verses:
-                    collated_verses[verse_number] = []
-                collated_verses[verse_number].append({
-                    "text": verse_text,
-                    "ms_id": ms_id
-                })
-                
-                manuscript_verse_counts[ms_id] += 1
-            
-            print(f"  Added {manuscript_verse_counts[ms_id]} verses from this manuscript")
-
-        # Summarize verse collection
-        print("\n=== VERSE COLLECTION SUMMARY ===")
-        total_unique_verses = len(collated_verses)
-        print(f"Total unique verse numbers: {total_unique_verses}")
-        
-        # Count how many manuscripts contain each verse
-        verse_coverage = {}
-        for verse_num, verse_data in collated_verses.items():
-            verse_coverage[verse_num] = len(verse_data)
-        
-        # Print verses with the most and least coverage
-        sorted_verses = sorted(verse_coverage.items(), key=lambda x: x[1], reverse=True)
-        print(f"Top 5 verses by manuscript coverage:")
-        for verse_num, count in sorted_verses[:5]:
-            print(f"  Verse {verse_num}: {count}/{len(manuscript_ids)} manuscripts")
-            
-        print(f"Bottom 5 verses by manuscript coverage:")
-        for verse_num, count in sorted_verses[-5:]:
-            print(f"  Verse {verse_num}: {count}/{len(manuscript_ids)} manuscripts")
-
-        # Collate each verse
-        print("\n=== COLLATING VERSES ===")
-        collated_results = {}
-
-        def clean_text(text):
-            # Lowercase
-            text = text.lower()
-            # Remove all punctuation including (), [], etc.
-            text = re.sub(r'[^\w\s]', '', text)
-            return text
-
-        for verse_number, verse_data in collated_verses.items():
-            # Clean the text
-            for item in verse_data:
-                item["text"] = clean_text(item["text"])
-        for verse_number, verse_data in collated_verses.items():
-            try:
-                # Only collate if we have multiple manuscripts
-                if len(verse_data) > 1:
-                    # Extract just the text for collation
-                    texts = [item["text"] for item in verse_data]
-                    ms_ids_for_verse = [item["ms_id"] for item in verse_data]
-                    
-                    # Debug output for a few verses
-                    if len(collated_results) < 2 or verse_number in ['1', '2', '10']:
-                        print(f"\nCollating verse {verse_number} with {len(texts)} manuscript versions:")
-                        for i, (text, ms_id) in enumerate(zip(texts, ms_ids_for_verse)):
-                            ms_name = next((m.get('filename', f"MS-{ms_id[-6:]}") for m in filtered_manuscripts if str(m["_id"]) == ms_id), f"MS-{ms_id[-6:]}")
-                            print(f"  MS {i+1}: '{text[:50]}{'...' if len(text) > 50 else ''}' ({ms_name})")
-                    
-                    # Only collate if texts are different
-                    if len(set(texts)) > 1:
-                        # Perform collation
-                        collation_result = collate_texts(texts)
-                        if collation_result:
-                            collated_results[verse_number] = collation_result
-                            
-                            # Debug collation structure for first verse
-                            if verse_number == '1':
-                                print("\nSample collation result structure:")
-                                if isinstance(collation_result, str):
-                                    collation_json = json.loads(collation_result)
-                                else:
-                                    collation_json = collation_result
-                                print(f"  Witnesses: {collation_json.get('witnesses', [])}")
-                                print(f"  Table columns: {len(collation_json.get('table', []))}")
-                                
-                                # Print a sample of the alignment table
-                                sample_table = collation_json.get('table', [])[:3]
-                                for i, column in enumerate(sample_table):
-                                    print(f"  Column {i+1} ({len(column)} cells):")
-                                    for j, cell in enumerate(column):
-                                        if cell:
-                                            cell_text = json.dumps(cell)[:100] + ('...' if len(json.dumps(cell)) > 100 else '')
-                                            print(f"    Cell {j}: {cell_text}")
-                    else:
-                        print(f"  Skipping verse {verse_number}: All {len(texts)} texts are identical")
-                else:
-                    print(f"  Skipping verse {verse_number}: Only {len(verse_data)} manuscript version")
-            except Exception as e:
-                print(f"ERROR collating verse {verse_number}: {e}")
-                import traceback
-                traceback.print_exc()
-                
-        print(f"\nSuccessfully collated {len(collated_results)} verses with differences")
-        
-        # Examine collated results
-        print("\n=== COLLATION RESULTS SUMMARY ===")
-        print(f"Verses with successful collation: {sorted(list(collated_results.keys()))}")
-        
-        # Build the phylogenetic tree
-        print("\n=== BUILDING PHYLOGENETIC TREE ===")
         tree_builder = PhylogeneticTreeBuilder()
-        
-        # Get manuscript info
-        manuscripts_info = tree_builder.get_manuscript_info(manuscript_ids)
-        print(f"Retrieved info for {len(manuscripts_info)} manuscripts")
-        
-        # Debug manuscript info
-        print("\nManuscript labels to be used in tree:")
-        for ms_id, info in manuscripts_info.items():
-            print(f"  {ms_id[-6:]}: {info['sigla']}")
-        
-        print(f"\nGenerating tree with {method} linkage method, {output_format} format")
-        
+
         if output_format == 'newick':
-            print("Creating Newick format tree...")
-            newick_tree = tree_builder.create_newick_tree(collated_results, manuscript_ids, method=method)
-            print(f"Newick tree result: {newick_tree[:100]}...")
+            newick_tree = tree_builder.generate_cluster_tree_image(output_format='base64')
             return JsonResponse({
-                "newick_tree": newick_tree,
-                "manuscript_count": len(manuscript_ids)
+                "newick_tree": newick_tree
             })
 
         elif output_format == 'base64':
-            print("Creating base64 encoded tree image...")
-            tree_image = tree_builder.generate_tree(collated_results, manuscript_ids, method=method, output_format='base64')
-            print(f"Generated base64 image of length {len(tree_image)}")
+            tree_image = tree_builder.generate_cluster_tree_image(output_format='base64')
             return JsonResponse({
-                "tree_image": tree_image,
-                "manuscript_count": len(manuscript_ids)
+                "tree_image": tree_image
             })
 
         elif output_format in ['png', 'svg']:
-            print(f"Creating {output_format} image...")
-            tree_image = tree_builder.generate_tree(collated_results, manuscript_ids, method=method, output_format=output_format)
-            print(f"Generated {output_format} image of size {len(tree_image)} bytes")
-            return HttpResponse(tree_image, content_type=f'image/{output_format}')
-
+            tree_image = tree_builder.generate_cluster_tree_image(output_format='base64')
+            mime_type = f'image/{output_format}'
+            return HttpResponse(tree_image, content_type=mime_type)
         else:
-            print(f"ERROR: Unsupported format {output_format}")
             return JsonResponse({"error": f"Unsupported format: {output_format}"}, status=400)
-        
+
     except Exception as e:
-        print(f"CRITICAL ERROR in generate_phylogenetic_tree: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
