@@ -29,6 +29,7 @@ urlpatterns = [
     path('documents/draft/<str:filename>/delete/', views.delete_draft, name='delete_draft'),
     path('comparisons/', views.save_comparison, name='save_comparison'),
     path('comparisons/all/', views.get_all_comparisons, name='get_all_comparisons'),
+    path('comparisons/<int:comparison_id>', views.delete_comparison, name='delete_comparison'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns, allowed=['json'])

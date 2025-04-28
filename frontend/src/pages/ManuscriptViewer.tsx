@@ -52,7 +52,6 @@ interface Manuscript {
   image_filename?: string;
 }
 
-// Interfaces for comparisons
 // Make `word_comparison` optional & do a defensive check
 interface WordComparisonData {
   verseNumber: number;
@@ -74,6 +73,8 @@ function ManuscriptViewer() {
   const navigate = useNavigate();
   const { sigla } = useParams();
   const { settings } = useDisplaySettings();
+  const toast = useToast();
+
   const [manuscript, setManuscript] = useState<Manuscript | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +95,7 @@ function ManuscriptViewer() {
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
 
+  // For editing the manuscript
   const [editedManuscript, setEditedManuscript] = useState<Manuscript | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -107,11 +109,9 @@ function ManuscriptViewer() {
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Editing image in the Edit Modal
+  // Editing the image in the Edit Modal
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
-
-  const toast = useToast();
 
   // Theme-based colors
   const boxBg = settings.theme === 'dark' ? 'gray.800' : 'white';
@@ -120,11 +120,12 @@ function ManuscriptViewer() {
   const linkColor = settings.theme === 'dark' ? 'blue.300' : 'blue.600';
 
   //---------------------------------------------------------------------
-  // 1) Fetch all comparisons from the backend
+  // 1) Fetch all comparisons from the backend (GET /api/comparisons/all)
   //---------------------------------------------------------------------
   useEffect(() => {
     async function fetchComparisons() {
       try {
+        setError(null);
         const res = await fetch(`${API_BASE_URL}/api/comparisons/all`);
         if (!res.ok) {
           throw new Error('Failed to fetch comparisons');
@@ -133,6 +134,7 @@ function ManuscriptViewer() {
         setComparisons(data);
       } catch (error) {
         console.error('Error fetching comparisons:', error);
+        setError(error instanceof Error ? error.message : 'Could not load comparisons');
       }
     }
     fetchComparisons();
@@ -159,7 +161,7 @@ function ManuscriptViewer() {
           verses: data.verses.map((verse: any) => {
             if (Array.isArray(verse)) {
               return {
-                verse_number: parseInt(verse[0]),
+                verse_number: parseInt(verse[0], 10),
                 verse_text: verse[1],
               };
             }
@@ -183,7 +185,7 @@ function ManuscriptViewer() {
   }, [sigla]);
 
   //---------------------------------------------------------------------
-  // 3) Compute the relevant comparisons for this manuscript
+  // 3) Compute the relevant comparisons for *this* manuscript
   //---------------------------------------------------------------------
   const currentManuscriptSigla = useMemo(() => {
     if (!manuscript) return '';
@@ -191,17 +193,51 @@ function ManuscriptViewer() {
   }, [manuscript]);
 
   const relevantComparisons = useMemo(() => {
-    // Only comparisons whose 'word_comparison' is defined
-    // *and* 'manuscriptSigla' matches
     return comparisons.filter((comp) => {
       const w = comp.word_comparison;
       if (!w) return false; // skip if missing
-      return w.manuscriptSigla === currentManuscriptSigla;
+      return w.manuscriptSigla === currentManuscriptSigla && comp.is_significant;
     });
   }, [comparisons, currentManuscriptSigla]);
 
   //---------------------------------------------------------------------
-  // 4) Image Upload Handling
+  // 4) "Unsave" or "Delete" a saved comparison => 
+  //    This calls DELETE /api/comparisons/:id
+  //    Then removes it from local state, so it's no longer shown.
+  //    Next time you open ManualDifferentiation, that difference 
+  //    will appear again in the queue (because it's no longer in DB).
+  //---------------------------------------------------------------------
+  async function handleUnsaveComparison(compId: number) {
+    try {
+      const delRes = await fetch(`${API_BASE_URL}/api/comparisons/${compId}`, {
+        method: 'DELETE',
+      });
+      if (!delRes.ok) {
+        const errData = await delRes.json();
+        throw new Error(errData.error || 'Failed to delete comparison');
+      }
+      // remove from local state
+      setComparisons((prev) => prev.filter((c) => c.id !== compId));
+      toast({
+        title: 'Comparison unsaved',
+        description: 'It will return to the "unconfirmed" list in Manual Differentiation.',
+        status: 'success',
+        duration: 2500,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error removing comparison',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    }
+  }
+
+  //---------------------------------------------------------------------
+  // 5) Image Upload Handling
   //---------------------------------------------------------------------
   function handleImageClick() {
     if (fileInputRef.current) {
@@ -274,7 +310,7 @@ function ManuscriptViewer() {
   }
 
   //---------------------------------------------------------------------
-  // 5) Editing the manuscript
+  // 6) Editing the manuscript
   //---------------------------------------------------------------------
   const handleEditClick = () => {
     if (manuscript) {
@@ -296,7 +332,7 @@ function ManuscriptViewer() {
   };
 
   //---------------------------------------------------------------------
-  // 6) Verse Reordering (Drag & Drop)
+  // 7) Verse Reordering (Drag & Drop)
   //---------------------------------------------------------------------
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     setDraggedIndex(index);
@@ -395,7 +431,7 @@ function ManuscriptViewer() {
   };
 
   //---------------------------------------------------------------------
-  // 7) Editing Verse Text
+  // 8) Editing Verse Text
   //---------------------------------------------------------------------
   const startEditingVerse = (index: number) => {
     setEditingVerseIndex(index);
@@ -426,7 +462,7 @@ function ManuscriptViewer() {
   };
 
   //---------------------------------------------------------------------
-  // 8) Saving manuscript changes (PUT or POST)
+  // 9) Saving manuscript changes (PUT or POST)
   //---------------------------------------------------------------------
   const handleSave = async () => {
     if (!editedManuscript) return;
@@ -501,7 +537,7 @@ function ManuscriptViewer() {
   };
 
   //---------------------------------------------------------------------
-  // 9) Deleting the manuscript
+  // 10) Deleting the manuscript
   //---------------------------------------------------------------------
   const handleDelete = async () => {
     if (!manuscript) return;
@@ -777,6 +813,47 @@ function ManuscriptViewer() {
                           <Text color={textColor}>
                             <strong>Timestamp:</strong> {comp.timestamp}
                           </Text>
+
+                          {/* NEW: "Delete (Unsave)" button */}
+                          <Button
+                            colorScheme="red"
+                            variant="outline"
+                            size="sm"
+                            mt={3}
+                            onClick={async () => {
+                              try {
+                                // Call DELETE /api/comparisons/:id
+                                const delRes = await fetch(
+                                  `${API_BASE_URL}/api/comparisons/${comp.id}`,
+                                  { method: 'DELETE' }
+                                );
+                                if (!delRes.ok) {
+                                  const errData = await delRes.json();
+                                  throw new Error(errData.error || 'Failed to delete comparison');
+                                }
+                                // Remove from local state
+                                setComparisons((prev) => prev.filter((c) => c.id !== comp.id));
+                                
+                                toast({
+                                  title: 'Comparison unsaved',
+                                  description: 'It will return to the "unconfirmed" list in Manual Differentiation.',
+                                  status: 'success',
+                                  duration: 2500,
+                                  isClosable: true,
+                                });
+                              } catch (err) {
+                                toast({
+                                  title: 'Error removing comparison',
+                                  description: err instanceof Error ? err.message : 'Unknown error',
+                                  status: 'error',
+                                  duration: 4000,
+                                  isClosable: true,
+                                });
+                              }
+                            }}
+                          >
+                            Delete (Unsave)
+                          </Button>
                         </Box>
                       );
                     })}

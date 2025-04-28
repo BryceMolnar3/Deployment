@@ -4,18 +4,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from .models import TextVersion, Manuscript, WordComparison, ComparisonResult
-from .serializers import TextVersionSerializer, ManuscriptSerializer, WordComparisonSerializer, ComparisonResultSerializer, ComparisonResultWithDetailsSerializer
-from .collate import collate_texts
+from .serializers import TextVersionSerializer, ManuscriptSerializer, WordComparisonSerializer, ComparisonResultSerializer, ComparisonResultWithDetailsSerializer, VerseSerializer
 from pymongo import MongoClient
 from bson.json_util import dumps
 import json
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from datetime import datetime
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.http import JsonResponse, HttpResponse
+from django.conf import settings
+from bson import ObjectId
+from .collate import collate_texts, extract_differences
+from .phylogenetic import PhylogeneticTreeBuilder
+import re
 
 
 
@@ -23,6 +27,29 @@ from rest_framework import status
 client = MongoClient('localhost', 27017)
 db = client.document_db
 documents = db['documents']
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def private_view(request):
+    return Response({"message": "You are logged in!"})
+
+
+
+@api_view(['DELETE'])
+def delete_comparison(request, comparison_id):
+    """
+    Delete a saved comparison (ComparisonResult).
+    """
+    try:
+        # Find the ComparisonResult by ID
+        comparison = get_object_or_404(ComparisonResult, id=comparison_id)
+        comparison.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# -- Everything below is your existing code, unchanged except for the snippet above. --
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -49,18 +76,14 @@ def search_manuscripts(request):
     )
     serializer = ManuscriptSerializer(manuscripts, many=True)
     return Response(serializer.data)
-from .models import TextVersion
-from .serializers import TextVersionSerializer, VerseSerializer
-from .collate import collate_texts
-from django.http import JsonResponse, HttpResponse
-from pymongo import MongoClient
-from rest_framework import status
-from django.conf import settings
-from bson import ObjectId
-from .collate import collate_texts, extract_differences
-from .phylogenetic import PhylogeneticTreeBuilder
-import json
-import re
+@api_view(['GET'])
+def get_all_comparisons(request):
+    """Return all saved ComparisonResult objects, including nested WordComparison."""
+    comparisons = ComparisonResult.objects.select_related("word_comparison").all()
+    serializer = ComparisonResultWithDetailsSerializer(comparisons, many=True)
+    return Response(serializer.data)
+
+
 
 client = MongoClient('localhost', 27017)
 db = client.document_db
@@ -483,17 +506,6 @@ def save_comparison(request):
                 return Response(comparison_result_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(word_comparison_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-...
-
-
-@api_view(['GET'])
-def get_all_comparisons(request):
-    """Return all saved ComparisonResult objects, including nested WordComparison."""
-    comparisons = ComparisonResult.objects.select_related("word_comparison").all()
-    serializer = ComparisonResultWithDetailsSerializer(comparisons, many=True)
-    return Response(serializer.data)
 
 
 
