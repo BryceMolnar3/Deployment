@@ -18,16 +18,39 @@ class TextVersionSerializer(serializers.ModelSerializer):
         model = TextVersion
         fields = '__all__'
 
+#
+# Existing WordComparisonSerializer (for CREATE)
+#
 class WordComparisonSerializer(serializers.ModelSerializer):
     verseNumber = serializers.IntegerField(source='verse_number')
     manuscriptSigla = serializers.CharField(source='manuscript_sigla')
+    
     class Meta:
         model = WordComparison
-        fields = fields = ['verseNumber', 'word1', 'word2', 'position', 'manuscriptSigla']
+        fields = ['verseNumber', 'word1', 'word2', 'position', 'manuscriptSigla']
 
+#
+# Existing ComparisonResultSerializer (for CREATE)
+#
 class ComparisonResultSerializer(serializers.ModelSerializer):
     word_comparison = serializers.PrimaryKeyRelatedField(queryset=WordComparison.objects.all())
 
     class Meta:
         model = ComparisonResult
         fields = ['word_comparison', 'is_significant', 'variation_type', 'timestamp']
+
+#
+# NEW: A "read-friendly" serializer that NESTS WordComparison
+#
+class ComparisonResultWithDetailsSerializer(serializers.ModelSerializer):
+    """
+    This serializer will give us a full nested WordComparison 
+    instead of just a PK.
+    """
+    # Re-use your existing WordComparisonSerializer, but set read_only=True
+    word_comparison = WordComparisonSerializer(read_only=True)
+
+    class Meta:
+        model = ComparisonResult
+        # You can also include an 'id' or other fields if desired
+        fields = ['id', 'word_comparison', 'is_significant', 'variation_type', 'timestamp']

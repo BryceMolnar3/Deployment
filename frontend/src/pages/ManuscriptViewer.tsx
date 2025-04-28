@@ -52,6 +52,24 @@ interface Manuscript {
   image_filename?: string;
 }
 
+// Interfaces for comparisons
+// Make `word_comparison` optional & do a defensive check
+interface WordComparisonData {
+  verseNumber: number;
+  word1: string;
+  word2: string;
+  position: number;
+  manuscriptSigla: string;
+}
+
+interface ComparisonResultData {
+  id: number;
+  is_significant: boolean;
+  variation_type: string;
+  timestamp: string;
+  word_comparison?: WordComparisonData;
+}
+
 function ManuscriptViewer() {
   const navigate = useNavigate();
   const { sigla } = useParams();
@@ -59,16 +77,27 @@ function ManuscriptViewer() {
   const [manuscript, setManuscript] = useState<Manuscript | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // State for the comparisons
+  const [comparisons, setComparisons] = useState<ComparisonResultData[]>([]);
+
+  // For image uploads
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // For deleting the manuscript
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Disclosure modals
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+
   const [editedManuscript, setEditedManuscript] = useState<Manuscript | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const toast = useToast();
+
+  // Verse drag-and-drop editing
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [editingVerseIndex, setEditingVerseIndex] = useState<number | null>(null);
   const [editingVerseText, setEditingVerseText] = useState('');
@@ -77,8 +106,12 @@ function ManuscriptViewer() {
   const verseHeight = useRef<number>(0);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Editing image in the Edit Modal
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  const toast = useToast();
 
   // Theme-based colors
   const boxBg = settings.theme === 'dark' ? 'gray.800' : 'white';
@@ -86,11 +119,34 @@ function ManuscriptViewer() {
   const borderColor = settings.theme === 'dark' ? 'gray.600' : 'gray.300';
   const linkColor = settings.theme === 'dark' ? 'blue.300' : 'blue.600';
 
+  //---------------------------------------------------------------------
+  // 1) Fetch all comparisons from the backend
+  //---------------------------------------------------------------------
+  useEffect(() => {
+    async function fetchComparisons() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/comparisons/all`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch comparisons');
+        }
+        const data = await res.json();
+        setComparisons(data);
+      } catch (error) {
+        console.error('Error fetching comparisons:', error);
+      }
+    }
+    fetchComparisons();
+  }, []);
+
+  //---------------------------------------------------------------------
+  // 2) Fetch the manuscript data by filename (sigla + .docx)
+  //---------------------------------------------------------------------
   useEffect(() => {
     async function fetchManuscript() {
       try {
         setIsLoading(true);
         setError(null);
+
         const response = await fetch(`${API_BASE_URL}/api/documents/${sigla}.docx`);
         if (!response.ok) {
           throw new Error('Failed to fetch manuscript');
@@ -101,16 +157,14 @@ function ManuscriptViewer() {
         const transformedData = {
           ...data,
           verses: data.verses.map((verse: any) => {
-            // If verse is a tuple [number, text]
             if (Array.isArray(verse)) {
               return {
                 verse_number: parseInt(verse[0]),
-                verse_text: verse[1]
+                verse_text: verse[1],
               };
             }
-            // If verse is already an object {verse_number, verse_text}
             return verse;
-          })
+          }),
         };
 
         setManuscript(transformedData);
@@ -128,6 +182,27 @@ function ManuscriptViewer() {
     }
   }, [sigla]);
 
+  //---------------------------------------------------------------------
+  // 3) Compute the relevant comparisons for this manuscript
+  //---------------------------------------------------------------------
+  const currentManuscriptSigla = useMemo(() => {
+    if (!manuscript) return '';
+    return manuscript.filename.replace('.docx', '');
+  }, [manuscript]);
+
+  const relevantComparisons = useMemo(() => {
+    // Only comparisons whose 'word_comparison' is defined
+    // *and* 'manuscriptSigla' matches
+    return comparisons.filter((comp) => {
+      const w = comp.word_comparison;
+      if (!w) return false; // skip if missing
+      return w.manuscriptSigla === currentManuscriptSigla;
+    });
+  }, [comparisons, currentManuscriptSigla]);
+
+  //---------------------------------------------------------------------
+  // 4) Image Upload Handling
+  //---------------------------------------------------------------------
   function handleImageClick() {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -138,8 +213,8 @@ function ManuscriptViewer() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = function(e) {
-        setSelectedImage(e.target?.result as string);
+      reader.onload = function (ev) {
+        setSelectedImage(ev.target?.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -147,26 +222,29 @@ function ManuscriptViewer() {
 
   async function handleImageUpload() {
     if (!selectedImage || !manuscript) return;
-
     try {
       setIsUploading(true);
       const formData = new FormData();
-      
-      // Convert base64 to blob
+
       const response = await fetch(selectedImage);
       const blob = await response.blob();
       formData.append('image', blob, 'manuscript_image.jpg');
 
-      // Add the manuscript data
-      formData.append('document', JSON.stringify({
-        ...manuscript,
-        image_filename: 'manuscript_image.jpg'
-      }));
+      formData.append(
+        'document',
+        JSON.stringify({
+          ...manuscript,
+          image_filename: 'manuscript_image.jpg',
+        })
+      );
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/update-document`, {
-        method: 'POST',
-        body: formData
-      });
+      const uploadResponse = await fetch(
+        `${API_BASE_URL}/api/documents/${manuscript.filename}/update-document`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
       if (!uploadResponse.ok) {
         throw new Error('Failed to upload image');
@@ -195,9 +273,12 @@ function ManuscriptViewer() {
     }
   }
 
+  //---------------------------------------------------------------------
+  // 5) Editing the manuscript
+  //---------------------------------------------------------------------
   const handleEditClick = () => {
     if (manuscript) {
-      setEditedManuscript({...manuscript});
+      setEditedManuscript({ ...manuscript });
       onEditOpen();
     }
   };
@@ -208,12 +289,15 @@ function ManuscriptViewer() {
         ...editedManuscript,
         metadata: {
           ...editedManuscript.metadata,
-          [field]: value
-        }
+          [field]: value,
+        },
       });
     }
   };
 
+  //---------------------------------------------------------------------
+  // 6) Verse Reordering (Drag & Drop)
+  //---------------------------------------------------------------------
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     setDraggedIndex(index);
     (e.currentTarget as HTMLDivElement).style.opacity = '0.4';
@@ -241,15 +325,15 @@ function ManuscriptViewer() {
     const [movedVerse] = verses.splice(draggedIndex, 1);
     verses.splice(dropIndex, 0, movedVerse);
 
-    // Update verse numbers
-    const updatedVerses = verses.map((verse, index) => ({
+    // Recalculate verse_number
+    const updatedVerses = verses.map((verse, i) => ({
       ...verse,
-      verse_number: index + 1
+      verse_number: i + 1,
     }));
 
     setEditedManuscript({
       ...editedManuscript,
-      verses: updatedVerses
+      verses: updatedVerses,
     });
 
     setDraggedIndex(null);
@@ -260,15 +344,13 @@ function ManuscriptViewer() {
     if (index === draggedIndex) {
       return { opacity: 0.4 };
     }
-
     if (index === dragOverIndex) {
-      return { 
+      return {
         borderTop: '2px solid #4299E1',
         marginTop: '-1px',
-        backgroundColor: '#EBF8FF'
+        backgroundColor: '#EBF8FF',
       };
     }
-
     return {};
   };
 
@@ -276,41 +358,76 @@ function ManuscriptViewer() {
     if (editedManuscript) {
       const verseText = prompt('Enter the verse text:');
       if (verseText?.trim()) {
-        const lastVerseNumber = editedManuscript.verses.length > 0 
-          ? editedManuscript.verses[editedManuscript.verses.length - 1].verse_number 
-          : 0;
+        const lastVerseNumber =
+          editedManuscript.verses.length > 0
+            ? editedManuscript.verses[editedManuscript.verses.length - 1].verse_number
+            : 0;
 
         setEditedManuscript({
           ...editedManuscript,
           verses: [
             ...editedManuscript.verses,
-            { 
+            {
               verse_number: lastVerseNumber + 1,
-              verse_text: verseText.trim()
-            }
-          ]
+              verse_text: verseText.trim(),
+            },
+          ],
         });
       }
     }
   };
 
   const handleRemoveVerse = (e: React.MouseEvent, index: number) => {
-    e.stopPropagation(); // Prevent event bubbling
+    e.stopPropagation();
     if (editedManuscript) {
       const updatedVerses = editedManuscript.verses
         .filter((_, i) => i !== index)
         .map((verse, i) => ({
           ...verse,
-          verse_number: i + 1
+          verse_number: i + 1,
         }));
 
       setEditedManuscript({
         ...editedManuscript,
-        verses: updatedVerses
+        verses: updatedVerses,
       });
     }
   };
 
+  //---------------------------------------------------------------------
+  // 7) Editing Verse Text
+  //---------------------------------------------------------------------
+  const startEditingVerse = (index: number) => {
+    setEditingVerseIndex(index);
+    setEditingVerseText(editedManuscript?.verses[index].verse_text || '');
+  };
+
+  const cancelEditingVerse = () => {
+    setEditingVerseIndex(null);
+    setEditingVerseText('');
+  };
+
+  const saveVerseEdit = () => {
+    if (editedManuscript && editingVerseIndex !== null) {
+      const updatedVerses = [...editedManuscript.verses];
+      updatedVerses[editingVerseIndex] = {
+        ...updatedVerses[editingVerseIndex],
+        verse_text: editingVerseText.trim(),
+      };
+
+      setEditedManuscript({
+        ...editedManuscript,
+        verses: updatedVerses,
+      });
+
+      setEditingVerseIndex(null);
+      setEditingVerseText('');
+    }
+  };
+
+  //---------------------------------------------------------------------
+  // 8) Saving manuscript changes (PUT or POST)
+  //---------------------------------------------------------------------
   const handleSave = async () => {
     if (!editedManuscript) return;
     try {
@@ -318,15 +435,18 @@ function ManuscriptViewer() {
       if (editedImage) {
         // If a new image is selected, upload with FormData
         const formData = new FormData();
-        // Convert base64 to blob
         const response = await fetch(editedImage);
         const blob = await response.blob();
         formData.append('image', blob, 'manuscript_image.jpg');
         formData.append('document', JSON.stringify(editedManuscript));
-        const uploadResponse = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-document`, {
-          method: 'POST',
-          body: formData
-        });
+
+        const uploadResponse = await fetch(
+          `${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-document`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
         if (!uploadResponse.ok) {
           const errorData = await uploadResponse.json();
           throw new Error(errorData.error || 'Failed to update manuscript');
@@ -344,13 +464,14 @@ function ManuscriptViewer() {
         window.location.reload();
       } else {
         // No new image, use JSON update
-        const response = await fetch(`${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-manuscript`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(editedManuscript)
-        });
+        const response = await fetch(
+          `${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-manuscript`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(editedManuscript),
+          }
+        );
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to update manuscript');
@@ -379,55 +500,29 @@ function ManuscriptViewer() {
     }
   };
 
-  const startEditingVerse = (index: number) => {
-    setEditingVerseIndex(index);
-    setEditingVerseText(editedManuscript?.verses[index].verse_text || '');
-  };
-
-  const cancelEditingVerse = () => {
-    setEditingVerseIndex(null);
-    setEditingVerseText('');
-  };
-
-  const saveVerseEdit = () => {
-    if (editedManuscript && editingVerseIndex !== null) {
-      const updatedVerses = [...editedManuscript.verses];
-      updatedVerses[editingVerseIndex] = {
-        ...updatedVerses[editingVerseIndex],
-        verse_text: editingVerseText.trim()
-      };
-
-      setEditedManuscript({
-        ...editedManuscript,
-        verses: updatedVerses
-      });
-
-      setEditingVerseIndex(null);
-      setEditingVerseText('');
-    }
-  };
-
+  //---------------------------------------------------------------------
+  // 9) Deleting the manuscript
+  //---------------------------------------------------------------------
   const handleDelete = async () => {
     if (!manuscript) return;
-
     try {
       setIsDeleting(true);
-      const response = await fetch(`${API_BASE_URL}/api/documents/${manuscript.filename}/delete`, {
-        method: 'DELETE',
-      });
-
+      const response = await fetch(
+        `${API_BASE_URL}/api/documents/${manuscript.filename}/delete`,
+        {
+          method: 'DELETE',
+        }
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete manuscript');
       }
-
       toast({
         title: 'Manuscript deleted successfully',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
-
       // Navigate back to the search page
       navigate('/search-database');
     } catch (error) {
@@ -444,6 +539,9 @@ function ManuscriptViewer() {
     }
   };
 
+  //---------------------------------------------------------------------
+  // RENDER
+  //---------------------------------------------------------------------
   if (isLoading) {
     return (
       <Box>
@@ -470,57 +568,141 @@ function ManuscriptViewer() {
     <Box>
       <NavigationBar />
       <Box>
+        {/* Header section with "Edit Manuscript" button */}
         <Box bg="#08004F" py={8} px={6}>
           <Flex justify="space-between" align="center">
-            <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">Manuscript View</Heading>
-            <Button colorScheme="blue" onClick={handleEditClick}>Edit Manuscript</Button>
+            <Heading fontWeight="normal" ml={8} color="lightgray" size="lg">
+              Manuscript View
+            </Heading>
+            <Button colorScheme="blue" onClick={handleEditClick}>
+              Edit Manuscript
+            </Button>
           </Flex>
         </Box>
 
+        {/* Main content */}
         <Box ml={8} p={6}>
           <Flex gap={12}>
+            {/* Left side: Manuscript metadata & verses */}
             <Box flex={2} maxW="65%">
               <Flex mb={6}>
-                <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>MS ID:</Text>
-                <Text fontSize="lg" fontWeight="normal" flex={1} color={textColor}><u>{manuscript.metadata['MS ID:']}</u></Text>
-                <Text fontSize="lg" fontWeight="normal" ml={8} color={textColor}>Sigla: <u>{manuscript.filename.replace('.docx', '')}</u></Text>
+                <Text
+                  fontSize="lg"
+                  fontWeight="normal"
+                  w="180px"
+                  color={textColor}
+                >
+                  MS ID:
+                </Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1} color={textColor}>
+                  <u>{manuscript.metadata['MS ID:']}</u>
+                </Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8} color={textColor}>
+                  Sigla: <u>{manuscript.filename.replace('.docx', '')}</u>
+                </Text>
               </Flex>
-              
+
               <VStack spacing={4} align="stretch">
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Other Names:</Text>
-                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Other Names:']}</u></Text>
+                  <Text
+                    fontSize="lg"
+                    fontWeight="normal"
+                    w="180px"
+                    color={textColor}
+                  >
+                    Other Names:
+                  </Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}>
+                    <u>{manuscript.metadata['Other Names:']}</u>
+                  </Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Total Folia:</Text>
-                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Total Folia:']}</u></Text>
+                  <Text
+                    fontSize="lg"
+                    fontWeight="normal"
+                    w="180px"
+                    color={textColor}
+                  >
+                    Total Folia:
+                  </Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}>
+                    <u>{manuscript.metadata['Total Folia:']}</u>
+                  </Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Laod. Folia:</Text>
-                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Laod Folia:']}</u></Text>
+                  <Text
+                    fontSize="lg"
+                    fontWeight="normal"
+                    w="180px"
+                    color={textColor}
+                  >
+                    Laod. Folia:
+                  </Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}>
+                    <u>{manuscript.metadata['Laod Folia:']}</u>
+                  </Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Dimensions:</Text>
-                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Dimensions:']}</u></Text>
+                  <Text
+                    fontSize="lg"
+                    fontWeight="normal"
+                    w="180px"
+                    color={textColor}
+                  >
+                    Dimensions:
+                  </Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}>
+                    <u>{manuscript.metadata['Dimensions:']}</u>
+                  </Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Place of Origin:</Text>
-                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Origin:']}</u></Text>
+                  <Text
+                    fontSize="lg"
+                    fontWeight="normal"
+                    w="180px"
+                    color={textColor}
+                  >
+                    Place of Origin:
+                  </Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}>
+                    <u>{manuscript.metadata['Origin:']}</u>
+                  </Text>
                 </Flex>
                 <Flex>
-                  <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Materials:</Text>
-                  <Text fontSize="lg" fontWeight="normal" color={textColor}><u>{manuscript.metadata['Materials:']}</u></Text>
+                  <Text
+                    fontSize="lg"
+                    fontWeight="normal"
+                    w="180px"
+                    color={textColor}
+                  >
+                    Materials:
+                  </Text>
+                  <Text fontSize="lg" fontWeight="normal" color={textColor}>
+                    <u>{manuscript.metadata['Materials:']}</u>
+                  </Text>
                 </Flex>
               </VStack>
 
               <Flex mt={4} mb={4}>
-                <Text fontSize="lg" fontWeight="normal" w="180px" color={textColor}>Format Description:</Text>
-                <Text fontSize="lg" fontWeight="normal" flex={1} color={textColor}><u>{manuscript.metadata['Format Description:']}</u></Text>
-                <Text fontSize="lg" fontWeight="normal" ml={8} color={textColor}>Date: <u>{manuscript.metadata['Date:']}</u></Text>
+                <Text
+                  fontSize="lg"
+                  fontWeight="normal"
+                  w="180px"
+                  color={textColor}
+                >
+                  Format Description:
+                </Text>
+                <Text fontSize="lg" fontWeight="normal" flex={1} color={textColor}>
+                  <u>{manuscript.metadata['Format Description:']}</u>
+                </Text>
+                <Text fontSize="lg" fontWeight="normal" ml={8} color={textColor}>
+                  Date: <u>{manuscript.metadata['Date:']}</u>
+                </Text>
               </Flex>
 
-              <Box 
-                border="1px solid" 
+              {/* Verse display */}
+              <Box
+                border="1px solid"
                 borderColor={borderColor}
                 borderRadius="md"
                 p={4}
@@ -533,16 +715,16 @@ function ManuscriptViewer() {
                     <Box key={`${verse.verse_number}-${index}`}>
                       <Text color={textColor} display="inline">
                         <Text
-                          as="span" 
+                          as="span"
                           cursor="pointer"
                           color={linkColor}
                           _hover={{ textDecoration: 'underline' }}
                           onClick={() => {
                             navigate(`/verse/${verse.verse_number}`, {
-                              state: { 
+                              state: {
                                 verseNumber: verse.verse_number,
-                                verseText: verse.verse_text
-                              }
+                                verseText: verse.verse_text,
+                              },
                             });
                           }}
                         >
@@ -554,20 +736,68 @@ function ManuscriptViewer() {
                   ))}
                 </VStack>
               </Box>
+
+              {/* NEW SECTION: Relevant Differences for this manuscript */}
+              <Box mt={8}>
+                <Heading size="md" mb={3} color={textColor}>
+                  Relevant Differences for <u>{currentManuscriptSigla}</u>
+                </Heading>
+                {relevantComparisons.length === 0 ? (
+                  <Text color={textColor}>
+                    No significant differences recorded for this manuscript.
+                  </Text>
+                ) : (
+                  <VStack spacing={4} align="stretch">
+                    {relevantComparisons.map((comp) => {
+                      const w = comp.word_comparison;
+                      return (
+                        <Box
+                          key={comp.id}
+                          p={3}
+                          borderWidth="1px"
+                          borderColor={borderColor}
+                          borderRadius="md"
+                          bg={boxBg}
+                        >
+                          <Text color={textColor}>
+                            <strong>Verse:</strong> {w?.verseNumber}
+                          </Text>
+                          <Text color={textColor}>
+                            <strong>Position:</strong> {w?.position}
+                          </Text>
+                          <Text color={textColor}>
+                            <strong>Word1:</strong> {w?.word1}
+                          </Text>
+                          <Text color={textColor}>
+                            <strong>Word2:</strong> {w?.word2}
+                          </Text>
+                          <Text color={textColor}>
+                            <strong>Variation Type:</strong> {comp.variation_type}
+                          </Text>
+                          <Text color={textColor}>
+                            <strong>Timestamp:</strong> {comp.timestamp}
+                          </Text>
+                        </Box>
+                      );
+                    })}
+                  </VStack>
+                )}
+              </Box>
             </Box>
 
+            {/* Right side: Manuscript image or placeholder */}
             <Box flex={1} display="flex" justifyContent="flex-start">
               {manuscript.image_filename ? (
-                <Image 
+                <Image
                   src={`${API_BASE_URL}/media/${manuscript.image_filename}`}
                   alt={`${manuscript.metadata['Other Names:']} manuscript page`}
                   maxH="900px"
                   objectFit="contain"
                 />
               ) : (
-                <Box 
-                  border="2px dashed" 
-                  borderColor="gray.400" 
+                <Box
+                  border="2px dashed"
+                  borderColor="gray.400"
                   borderRadius="md"
                   height="300px"
                   width="100%"
@@ -576,12 +806,16 @@ function ManuscriptViewer() {
                   justifyContent="center"
                   bg="gray.100"
                   cursor="pointer"
-                  _hover={{ bg: "gray.200" }}
+                  _hover={{ bg: 'gray.200' }}
                   onClick={onOpen}
                 >
                   <VStack spacing={2}>
-                    <Text color="gray.500" fontSize="lg">No image available</Text>
-                    <Text color="gray.400" fontSize="sm">Click to upload an image</Text>
+                    <Text color="gray.500" fontSize="lg">
+                      No image available
+                    </Text>
+                    <Text color="gray.400" fontSize="sm">
+                      Click to upload an image
+                    </Text>
                   </VStack>
                 </Box>
               )}
@@ -604,9 +838,9 @@ function ManuscriptViewer() {
               accept="image/*"
               style={{ display: 'none' }}
             />
-            <Box 
-              border="2px dashed" 
-              borderColor="gray.400" 
+            <Box
+              border="2px dashed"
+              borderColor="gray.400"
               borderRadius="md"
               height="300px"
               display="flex"
@@ -614,7 +848,7 @@ function ManuscriptViewer() {
               justifyContent="center"
               bg="gray.100"
               cursor="pointer"
-              _hover={{ bg: "gray.200" }}
+              _hover={{ bg: 'gray.200' }}
               onClick={handleImageClick}
               position="relative"
               overflow="hidden"
@@ -630,8 +864,12 @@ function ManuscriptViewer() {
                 />
               ) : (
                 <VStack spacing={2}>
-                  <Text color="gray.500" fontSize="lg">Upload image</Text>
-                  <Text color="gray.400" fontSize="sm">Click to select a file</Text>
+                  <Text color="gray.500" fontSize="lg">
+                    Upload image
+                  </Text>
+                  <Text color="gray.400" fontSize="sm">
+                    Click to select a file
+                  </Text>
                 </VStack>
               )}
             </Box>
@@ -662,42 +900,56 @@ function ManuscriptViewer() {
                   <FormLabel>MS ID</FormLabel>
                   <Input
                     value={editedManuscript.metadata['MS ID:']}
-                    onChange={(e) => handleInputChange('MS ID:', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange('MS ID:', e.target.value)
+                    }
                   />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Other Names</FormLabel>
                   <Input
                     value={editedManuscript.metadata['Other Names:']}
-                    onChange={(e) => handleInputChange('Other Names:', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange('Other Names:', e.target.value)
+                    }
                   />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Date</FormLabel>
                   <Input
                     value={editedManuscript.metadata['Date:']}
-                    onChange={(e) => handleInputChange('Date:', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange('Date:', e.target.value)
+                    }
                   />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Place of Origin</FormLabel>
                   <Input
                     value={editedManuscript.metadata['Origin:']}
-                    onChange={(e) => handleInputChange('Origin:', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange('Origin:', e.target.value)
+                    }
                   />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Materials</FormLabel>
                   <Input
                     value={editedManuscript.metadata['Materials:']}
-                    onChange={(e) => handleInputChange('Materials:', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange('Materials:', e.target.value)
+                    }
                   />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Format Description</FormLabel>
                   <Textarea
-                    value={editedManuscript.metadata['Format Description:']}
-                    onChange={(e) => handleInputChange('Format Description:', e.target.value)}
+                    value={
+                      editedManuscript.metadata['Format Description:']
+                    }
+                    onChange={(e) =>
+                      handleInputChange('Format Description:', e.target.value)
+                    }
                   />
                 </FormControl>
                 <FormControl>
@@ -705,12 +957,12 @@ function ManuscriptViewer() {
                   <input
                     type="file"
                     ref={editFileInputRef}
-                    onChange={e => {
+                    onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
                         const reader = new FileReader();
-                        reader.onload = function(e) {
-                          setEditedImage(e.target?.result as string);
+                        reader.onload = function (ev) {
+                          setEditedImage(ev.target?.result as string);
                         };
                         reader.readAsDataURL(file);
                       }
@@ -728,7 +980,7 @@ function ManuscriptViewer() {
                     justifyContent="center"
                     bg="gray.100"
                     cursor="pointer"
-                    _hover={{ bg: "gray.200" }}
+                    _hover={{ bg: 'gray.200' }}
                     onClick={() => editFileInputRef.current?.click()}
                     position="relative"
                     overflow="hidden"
@@ -744,12 +996,25 @@ function ManuscriptViewer() {
                       />
                     ) : (
                       <Image
-                        src={editedManuscript.image_filename ? `${API_BASE_URL}/media/${editedManuscript.image_filename}` : ''}
+                        src={
+                          editedManuscript.image_filename
+                            ? `${API_BASE_URL}/media/${editedManuscript.image_filename}`
+                            : ''
+                        }
                         alt="Current manuscript"
                         objectFit="contain"
                         maxH="100%"
                         maxW="100%"
-                        fallback={<VStack spacing={2}><Text color="gray.500" fontSize="lg">Upload image</Text><Text color="gray.400" fontSize="sm">Click to select a file</Text></VStack>}
+                        fallback={
+                          <VStack spacing={2}>
+                            <Text color="gray.500" fontSize="lg">
+                              Upload image
+                            </Text>
+                            <Text color="gray.400" fontSize="sm">
+                              Click to select a file
+                            </Text>
+                          </VStack>
+                        }
                       />
                     )}
                   </Box>
@@ -759,7 +1024,11 @@ function ManuscriptViewer() {
                 <Box width="100%" mt={4}>
                   <Flex justify="space-between" align="center" mb={4}>
                     <Heading size="md">Verses</Heading>
-                    <Button size="sm" colorScheme="blue" onClick={handleAddVerse}>
+                    <Button
+                      size="sm"
+                      colorScheme="blue"
+                      onClick={handleAddVerse}
+                    >
                       Add Verse
                     </Button>
                   </Flex>
@@ -776,16 +1045,22 @@ function ManuscriptViewer() {
                         onDragEnd={(e) => handleDragEnd(e)}
                         onDragOver={(e) => handleDragOver(e, index)}
                         onDrop={(e) => handleDrop(e, index)}
-                        cursor={editingVerseIndex === index ? 'default' : 'grab'}
+                        cursor={
+                          editingVerseIndex === index ? 'default' : 'grab'
+                        }
                         transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
-                        _hover={{ bg: "gray.50" }}
+                        _hover={{ bg: 'gray.50' }}
                         style={getVerseStyle(index)}
                       >
                         <Flex justify="space-between" align="center">
                           <Flex align="center" flex={1}>
-                            <Box 
+                            <Box
                               mr={3}
-                              cursor={editingVerseIndex === index ? 'default' : 'grab'}
+                              cursor={
+                                editingVerseIndex === index
+                                  ? 'default'
+                                  : 'grab'
+                              }
                               _active={{ cursor: 'grabbing' }}
                             >
                               <DragHandleIcon />
@@ -794,7 +1069,9 @@ function ManuscriptViewer() {
                               <Flex flex={1} align="center">
                                 <Textarea
                                   value={editingVerseText}
-                                  onChange={(e) => setEditingVerseText(e.target.value)}
+                                  onChange={(e) =>
+                                    setEditingVerseText(e.target.value)
+                                  }
                                   size="sm"
                                   resize="vertical"
                                   mr={2}
@@ -828,7 +1105,13 @@ function ManuscriptViewer() {
                                 <Text fontWeight="bold" mr={4} flexShrink={0}>
                                   Verse {verse.verse_number}
                                 </Text>
-                                <Text flex={1} whiteSpace="pre-wrap" wordBreak="break-word">{verse.verse_text}</Text>
+                                <Text
+                                  flex={1}
+                                  whiteSpace="pre-wrap"
+                                  wordBreak="break-word"
+                                >
+                                  {verse.verse_text}
+                                </Text>
                                 <Box flexShrink={0}>
                                   <IconButton
                                     aria-label="Edit verse"
@@ -842,7 +1125,9 @@ function ManuscriptViewer() {
                                     size="sm"
                                     colorScheme="red"
                                     variant="ghost"
-                                    onClick={(e) => handleRemoveVerse(e, index)}
+                                    onClick={(e) =>
+                                      handleRemoveVerse(e, index)
+                                    }
                                   >
                                     Remove
                                   </Button>
@@ -887,9 +1172,15 @@ function ManuscriptViewer() {
           <ModalHeader>Delete Manuscript</ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6}>
-            <Text>Are you sure you want to delete this manuscript? This action cannot be undone.</Text>
-            <Text mt={2} fontWeight="bold">Manuscript: {manuscript?.filename.replace('.docx', '')}</Text>
-            
+            <Text>
+              Are you sure you want to delete this manuscript? This action
+              cannot be undone.
+            </Text>
+            <Text mt={2} fontWeight="bold">
+              Manuscript:{' '}
+              {manuscript?.filename.replace('.docx', '')}
+            </Text>
+
             <Flex mt={4} gap={3}>
               <Button
                 colorScheme="red"
@@ -899,7 +1190,9 @@ function ManuscriptViewer() {
               >
                 Yes, Delete
               </Button>
-              <Button onClick={onDeleteClose} flex={1}>Cancel</Button>
+              <Button onClick={onDeleteClose} flex={1}>
+                Cancel
+              </Button>
             </Flex>
           </ModalBody>
         </ModalContent>
@@ -908,4 +1201,4 @@ function ManuscriptViewer() {
   );
 }
 
-export default ManuscriptViewer; 
+export default ManuscriptViewer;

@@ -44,7 +44,7 @@ export const collationService = {
     variationType: string;
   }): Promise<ComparisonResult> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/comparisons/`, {
+      const response = await fetch(`${API_BASE_URL}/comparisons/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -164,12 +164,8 @@ def send_to_mongodb(document_data, mongo_uri="mongodb://127.0.0.1:27017", db_nam
     # return result.inserted_id
 
 if __name__ == "__main__":
-<<<<<<< HEAD:Data_Collection_Script/collectdata.py
-    file_path = "01.docx"  # Change this to your filename if needed.
-=======
     file_path = "test.docx"  # Change this to your filename if needed.
     image_path = "manuscript.png"
->>>>>>> collation:backend/collation/collectdata.py
     
     try:
         # Extract metadata from the first table.

@@ -28,6 +28,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('documents/draft/<str:filename>/delete/', views.delete_draft, name='delete_draft'),
     path('comparisons/', views.save_comparison, name='save_comparison'),
+    path('comparisons/all/', views.get_all_comparisons, name='get_all_comparisons'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns, allowed=['json'])

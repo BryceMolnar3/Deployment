@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from .models import TextVersion, Manuscript, WordComparison, ComparisonResult
-from .serializers import TextVersionSerializer, ManuscriptSerializer, WordComparisonSerializer, ComparisonResultSerializer
+from .serializers import TextVersionSerializer, ManuscriptSerializer, WordComparisonSerializer, ComparisonResultSerializer, ComparisonResultWithDetailsSerializer
 from .collate import collate_texts
 from pymongo import MongoClient
 from bson.json_util import dumps
@@ -13,6 +13,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from datetime import datetime
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 
 
 
@@ -480,6 +483,19 @@ def save_comparison(request):
                 return Response(comparison_result_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(word_comparison_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+...
+
+
+@api_view(['GET'])
+def get_all_comparisons(request):
+    """Return all saved ComparisonResult objects, including nested WordComparison."""
+    comparisons = ComparisonResult.objects.select_related("word_comparison").all()
+    serializer = ComparisonResultWithDetailsSerializer(comparisons, many=True)
+    return Response(serializer.data)
+
+
 
 @api_view(['GET'])
 def generate_phylogenetic_tree(request):
