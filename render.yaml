@@ -12,13 +12,13 @@ services:
       cd backend
       python -m pip install --upgrade pip
       pip install -r requirements.txt
+      pip install gunicorn
       # Copy frontend build to Django static directory
       mkdir -p static
       cp -r ../frontend/build/* static/
       python manage.py collectstatic --noinput
     startCommand: |
       cd backend
-      export PATH="/opt/render/project/poetry/bin:$PATH"
       python manage.py migrate
       gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
