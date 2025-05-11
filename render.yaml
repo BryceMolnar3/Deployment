@@ -13,16 +13,16 @@ services:
       cd ..
       # Setup backend
       cd /opt/render/project/src
-      chmod +x start.sh
       # Copy frontend build to Django static directory
       mkdir -p static
       cp -r ../frontend/build/* static/
     startCommand: |
+      source /opt/render/project/.profile
       cd /opt/render/project/src
-      /opt/render/project/poetry/bin/poetry install --no-dev
-      /opt/render/project/poetry/bin/poetry run python manage.py migrate
-      /opt/render/project/poetry/bin/poetry run python manage.py collectstatic --noinput
-      /opt/render/project/poetry/bin/poetry run gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
+      poetry install --no-dev
+      poetry run python manage.py migrate
+      poetry run python manage.py collectstatic --noinput
+      poetry run gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SECRET_KEY
         sync: false
