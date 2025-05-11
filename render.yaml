@@ -10,17 +10,13 @@ services:
       cd ..
       # Build backend
       cd backend
-      export PATH="/opt/render/project/poetry/bin:$PATH"
-      poetry install --no-dev
+      chmod +x start.sh
       # Copy frontend build to Django static directory
       mkdir -p static
       cp -r ../frontend/build/* static/
-      poetry run python manage.py collectstatic --noinput
     startCommand: |
       cd backend
-      export PATH="/opt/render/project/poetry/bin:$PATH"
-      poetry run python manage.py migrate
-      poetry run gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
+      ./start.sh
     envVars:
       - key: SECRET_KEY
         sync: false
