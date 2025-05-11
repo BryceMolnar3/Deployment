@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: collation-app
+    env: python
+    buildCommand: |
+      cd backend
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: |
+      cd backend
+      gunicorn collation_backend.wsgi:application
+    envVars:
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: false
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: MONGODB_URI
+        sync: false
+      - key: REACT_APP_API_BASE_URL
+        value: "/api" 

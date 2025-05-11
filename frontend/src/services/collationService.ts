@@ -28,7 +28,11 @@ interface ComparisonResult {
 export const collationService = {
   async collateManuscripts(): Promise<CollationResult> {
     try {
-      const response = await fetch(`${API_BASE_URL}/collate/`);
+      const response = await fetch(`${API_BASE_URL}/collate/`, {
+        headers: {
+          ...this.getAuthHeader(),
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to collate manuscripts');
       }
@@ -48,6 +52,7 @@ export const collationService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...this.getAuthHeader(),
         },
         body: JSON.stringify(data),
       });
@@ -64,7 +69,11 @@ export const collationService = {
 
   async getVerses(manuscriptId: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/verses/${manuscriptId}/`);
+      const response = await fetch(`${API_BASE_URL}/verses/${manuscriptId}/`, {
+        headers: {
+          ...this.getAuthHeader(),
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch verses');
       }
@@ -76,7 +85,11 @@ export const collationService = {
 
   async getVerse(manuscriptId: string, verseNumber: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/verses/${manuscriptId}/${verseNumber}/`);
+      const response = await fetch(`${API_BASE_URL}/verses/${manuscriptId}/${verseNumber}/`, {
+        headers: {
+          ...this.getAuthHeader(),
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch verse');
       }
@@ -88,7 +101,11 @@ export const collationService = {
 
   async getPhylogeneticTree(format: 'base64' | 'newick' = 'base64'): Promise<{ tree_image?: string; newick_tree?: string; manuscript_count: number }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/generate_phylogenetic_tree/?format2=${format}`);
+      const response = await fetch(`${API_BASE_URL}/generate_phylogenetic_tree/?format2=${format}`, {
+        headers: {
+          ...this.getAuthHeader(),
+        },
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch phylogenetic tree');
       }
@@ -96,5 +113,38 @@ export const collationService = {
     } catch (error) {
       throw new Error('Error fetching phylogenetic tree: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
+  },
+
+  async login(username: string, password: string): Promise<{ access: string; refresh: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/token/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('accessToken', data.access);
+      localStorage.setItem('refreshToken', data.refresh);
+      return data;
+    } catch (error) {
+      throw new Error('Error during login: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  },
+
+  async logout(): Promise<void> {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  },
+
+  getAuthHeader(): { Authorization: string } | {} {
+    const token = localStorage.getItem('accessToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 }; 

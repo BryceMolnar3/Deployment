@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  django:
+    build:
+      context: ./backend
+    container_name: django
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+      - sqlite-data:/app/db.sqlite3
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - DJANGO_SETTINGS_MODULE=collation_backend.settings
+      - MONGO_URL=mongodb://mongodb:27017/
+
+  react:
+    build:
+      context: ./frontend
+    container_name: react
+    ports:
+      - "3000:3000"
+    depends_on:
+      - django
+
+volumes:
+  mongo-data:
+  sqlite-data:
