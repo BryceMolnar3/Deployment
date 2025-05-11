@@ -9,14 +9,14 @@ services:
       npm run build
       cd ..
       # Setup backend
-      cd backend
-      pip install -r requirements.txt
+      cd backend/collation_backend
+      pip install -r ../requirements.txt
       # Copy frontend build to Django static directory
       mkdir -p static
-      cp -r ../frontend/build/* static/
+      cp -r ../../frontend/build/* static/
       python manage.py collectstatic --noinput
     startCommand: |
-      cd backend
+      cd backend/collation_backend
       python manage.py migrate
       gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
