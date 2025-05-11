@@ -11,8 +11,10 @@ services:
       # Setup backend
       cd backend/collation_backend
       pip install -r ../requirements.txt
-      # Copy frontend build to Django static directory
+      # Create necessary directories
       mkdir -p static
+      mkdir -p ../media
+      # Copy frontend build to Django static directory
       cp -r ../../frontend/build/* static/
       python manage.py collectstatic --noinput
     startCommand: |
@@ -29,4 +31,8 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: REACT_APP_API_BASE_URL
-        value: "/api" 
+        value: "/api"
+      - key: STATIC_ROOT
+        value: "static"
+      - key: MEDIA_ROOT
+        value: "../media" 
