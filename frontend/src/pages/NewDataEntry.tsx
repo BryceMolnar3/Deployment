@@ -34,7 +34,7 @@ import {
   AlertDialogContent,
   AlertDialogOverlay
 } from '@chakra-ui/react';
-import NavigationBar from '../components/NavigationBar.tsx';
+import NavigationBar from '../components/NavigationBar';
 
 // API base URL - can be configured based on environment
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';

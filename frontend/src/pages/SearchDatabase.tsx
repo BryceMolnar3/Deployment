@@ -19,7 +19,7 @@ import {
   FormControl,
   FormLabel
 } from '@chakra-ui/react';
-import NavigationBar from '../components/NavigationBar.tsx';
+import NavigationBar from '../components/NavigationBar';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 
