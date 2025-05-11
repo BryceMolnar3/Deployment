@@ -3,9 +3,11 @@ services:
     name: collation-app
     env: python
     buildCommand: |
-      # Create src directory and move backend files
+      # Create src directory and move manage.py
       mkdir -p /opt/render/project/src
-      cp -r backend/* /opt/render/project/src/
+      cp backend/manage.py /opt/render/project/src/
+      cp -r backend/collation /opt/render/project/src/
+      cp -r backend/collation_backend /opt/render/project/src/
       # Build frontend
       cd frontend
       npm install
@@ -17,7 +19,6 @@ services:
       mkdir -p static
       cp -r ../frontend/build/* static/
     startCommand: |
-      source /opt/render/project/.profile
       cd /opt/render/project/src
       poetry install --no-dev
       poetry run python manage.py migrate
