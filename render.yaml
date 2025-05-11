@@ -3,23 +3,21 @@ services:
     name: collation-app
     env: python
     buildCommand: |
-      # Move to src directory
-      cd /opt/render/project/src
-      # Copy backend files
-      cp -r ../backend/* .
       # Build frontend
-      cd ../frontend
+      cd frontend
       npm install
       npm run build
-      cd ../src
-      # Setup static files
+      cd ..
+      # Setup backend
+      cd backend
+      /opt/render/project/poetry/bin/poetry install --no-dev
+      # Copy frontend build to Django static directory
       mkdir -p static
       cp -r ../frontend/build/* static/
-    startCommand: |
-      cd /opt/render/project/src
-      /opt/render/project/poetry/bin/poetry install --no-dev
-      /opt/render/project/poetry/bin/poetry run python manage.py migrate
       /opt/render/project/poetry/bin/poetry run python manage.py collectstatic --noinput
+    startCommand: |
+      cd backend
+      /opt/render/project/poetry/bin/poetry run python manage.py migrate
       /opt/render/project/poetry/bin/poetry run gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SECRET_KEY
