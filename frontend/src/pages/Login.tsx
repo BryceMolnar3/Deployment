@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Button, FormControl, FormLabel, Input, VStack, Heading, Text, useToast } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { collationService } from '../services/collationService';
+import { testService } from '../services/testService';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -11,14 +11,14 @@ const Login: React.FC = () => {
 
   const handleLogin = async () => {
     try {
-      await collationService.login(username, password);
+      console.log(testService.test()); // Temporary test
       toast({
         title: 'Login successful',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
-      navigate('/search-database'); // Redirect to home page after login
+      navigate('/search-database');
     } catch (error) {
       toast({
         title: 'Login failed',
@@ -31,14 +31,15 @@ const Login: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await collationService.logout();
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     toast({
       title: 'Logged out',
       status: 'info',
       duration: 3000,
       isClosable: true,
     });
-    navigate('/login'); // Redirect to login page after logout
+    navigate('/login');
   };
 
   return (
