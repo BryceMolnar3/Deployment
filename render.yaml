@@ -3,20 +3,7 @@ services:
     name: collation-app
     env: python
     buildCommand: |
-      # Build frontend
-      cd frontend
-      npm install
-      npm run build
-      cd ..
-      # Setup backend
-      cd backend/collation_backend
-      pip install -r ../requirements.txt
-      # Create necessary directories
-      mkdir -p static
-      mkdir -p ../media
-      # Copy frontend build to Django static directory
-      cp -r ../../frontend/build/* static/
-      python manage.py collectstatic --noinput
+      cd frontend && npm install && npm run build && cd .. && cd backend/collation_backend && pip install -r ../requirements.txt && mkdir -p static && cp -r ../../frontend/build/* static/ && python manage.py collectstatic --noinput
     startCommand: |
       cd backend/collation_backend
       python manage.py migrate
