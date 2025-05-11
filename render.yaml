@@ -10,17 +10,17 @@ services:
       cd ..
       # Build backend
       cd backend
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
-      pip install gunicorn
+      export PATH="/opt/render/project/poetry/bin:$PATH"
+      poetry install --no-dev
       # Copy frontend build to Django static directory
       mkdir -p static
       cp -r ../frontend/build/* static/
-      python manage.py collectstatic --noinput
+      poetry run python manage.py collectstatic --noinput
     startCommand: |
       cd backend
-      python manage.py migrate
-      gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
+      export PATH="/opt/render/project/poetry/bin:$PATH"
+      poetry run python manage.py migrate
+      poetry run gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SECRET_KEY
         sync: false
