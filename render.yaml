@@ -4,22 +4,25 @@ services:
     env: python
     buildCommand: |
       # Create src directory and move backend files
-      mkdir -p src
-      cp -r backend/* src/
+      mkdir -p /opt/render/project/src
+      cp -r backend/* /opt/render/project/src/
       # Build frontend
       cd frontend
       npm install
       npm run build
       cd ..
       # Setup backend
-      cd src
+      cd /opt/render/project/src
       chmod +x start.sh
       # Copy frontend build to Django static directory
       mkdir -p static
       cp -r ../frontend/build/* static/
     startCommand: |
-      cd src
-      ./start.sh
+      cd /opt/render/project/src
+      /opt/render/project/poetry/bin/poetry install --no-dev
+      /opt/render/project/poetry/bin/poetry run python manage.py migrate
+      /opt/render/project/poetry/bin/poetry run python manage.py collectstatic --noinput
+      /opt/render/project/poetry/bin/poetry run gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SECRET_KEY
         sync: false
