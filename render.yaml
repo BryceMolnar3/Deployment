@@ -3,19 +3,22 @@ services:
     name: collation-app
     env: python
     buildCommand: |
+      # Create src directory and move backend files
+      mkdir -p src
+      cp -r backend/* src/
       # Build frontend
       cd frontend
       npm install
       npm run build
       cd ..
-      # Build backend
-      cd backend
+      # Setup backend
+      cd src
       chmod +x start.sh
       # Copy frontend build to Django static directory
       mkdir -p static
       cp -r ../frontend/build/* static/
     startCommand: |
-      cd backend
+      cd src
       ./start.sh
     envVars:
       - key: SECRET_KEY
