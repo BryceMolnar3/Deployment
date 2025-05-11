@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config.ts';
+import { API_BASE_URL } from '../config';
 
 interface CollationResult {
   differences: {
