@@ -319,7 +319,7 @@ function NewDataEntry() {
     try {
       setIsLoading(true);
       // Validate required fields
-      const requiredFields = ['ms_id', 'sigla', 'date'];
+      const requiredFields: (keyof FormData)[] = ['ms_id', 'sigla', 'date'];
       const missingFields = requiredFields.filter(field => !formData[field]);
       
       if (missingFields.length > 0) {
