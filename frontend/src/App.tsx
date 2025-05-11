@@ -1,14 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { DisplaySettingsProvider } from './contexts/DisplaySettingsContext.tsx';
-import ManuscriptViewer from './pages/ManuscriptViewer.tsx';
-import VerseId from './pages/verse/VerseId.tsx';
-import NewDataEntry from './pages/NewDataEntry.tsx';
-import SearchDatabase from './pages/SearchDatabase.tsx';
-import ManualDifferentiation from './pages/ManualDifferentiation.tsx';
-import Settings from './pages/Settings.tsx';
-import PhylogeneticAnalysis from './pages/PhylogeneticAnalysis.tsx';
-import Login from './pages/Login.tsx';
+import { DisplaySettingsProvider } from './contexts/DisplaySettingsContext';
+import ManuscriptViewer from './pages/ManuscriptViewer';
+import VerseId from './pages/verse/VerseId';
+import NewDataEntry from './pages/NewDataEntry';
+import SearchDatabase from './pages/SearchDatabase';
+import ManualDifferentiation from './pages/ManualDifferentiation';
+import Settings from './pages/Settings';
+import PhylogeneticAnalysis from './pages/PhylogeneticAnalysis';
+import Login from './pages/Login';
 import { collationService } from './services/collationService';
 
 // Protected Route wrapper

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Button, FormControl, FormLabel, Input, VStack, Heading, Text, useToast } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { testService } from '../services/testService';
+import { collationService } from '../services/collationService';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -11,7 +11,7 @@ const Login: React.FC = () => {
 
   const handleLogin = async () => {
     try {
-      console.log(testService.test()); // Temporary test
+      await collationService.login(username, password);
       toast({
         title: 'Login successful',
         status: 'success',
@@ -31,8 +31,7 @@ const Login: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    await collationService.logout();
     toast({
       title: 'Logged out',
       status: 'info',
