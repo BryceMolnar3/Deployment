@@ -8,7 +8,7 @@ import SearchDatabase from './pages/SearchDatabase.tsx';
 import ManualDifferentiation from './pages/ManualDifferentiation.tsx';
 import Settings from './pages/Settings.tsx';
 import PhylogeneticAnalysis from './pages/PhylogeneticAnalysis.tsx';
-import Login from './pages/Login';
+import Login from './pages/Login.tsx';
 import { collationService } from './services/collationService';
 
 // Protected Route wrapper
