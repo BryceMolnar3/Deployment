@@ -514,9 +514,33 @@ def generate_phylogenetic_tree(request):
     """
     Generate a phylogenetic tree from the manuscripts involved in significant
     differences (ComparisonResult where is_significant=True).
+
+    Query Parameters:
+        method (str): The clustering method to use. Currently only 'average' is supported.
+        format2 (str): The output format. Supported values: 'base64', 'png', 'svg', 'newick'.
+
+    Returns:
+        - For 'base64', 'png', 'svg': The tree image in the requested format
+        - For 'newick': A JSON response with the Newick format tree string
+
+    Error Responses:
+        - 400: Bad Request - Invalid parameters
+        - 500: Internal Server Error - Tree generation failed
     """
+    # Validate method parameter
     method = request.GET.get('method', 'average')
+    if method != 'average':
+        return JsonResponse({
+            "error": f"Unsupported method: {method}. Only 'average' is currently supported."
+        }, status=400)
+
+    # Validate output format
     output_format = request.GET.get('format2', 'base64')
+    if output_format not in ['base64', 'png', 'svg', 'newick']:
+        return JsonResponse({
+            "error": f"Unsupported format: {output_format}. Supported formats are: base64, png, svg, newick"
+        }, status=400)
+
     try:
         print("\n=== GENERATING PHYLOGENETIC TREE (BASED ON SIGNIFICANT DIFFERENCES) ===")
         print(f"Method: {method}, Format: {output_format}")
@@ -524,7 +548,7 @@ def generate_phylogenetic_tree(request):
         tree_builder = PhylogeneticTreeBuilder()
 
         if output_format == 'newick':
-            newick_tree = tree_builder.generate_cluster_tree_image(output_format='base64')
+            newick_tree = tree_builder.generate_cluster_tree_image(output_format='newick')
             return JsonResponse({
                 "newick_tree": newick_tree
             })
@@ -535,17 +559,24 @@ def generate_phylogenetic_tree(request):
                 "tree_image": tree_image
             })
 
-        elif output_format in ['png', 'svg']:
-            tree_image = tree_builder.generate_cluster_tree_image(output_format='base64')
+        else:  # png or svg
+            tree_image = tree_builder.generate_cluster_tree_image(output_format=output_format)
             mime_type = f'image/{output_format}'
             return HttpResponse(tree_image, content_type=mime_type)
-        else:
-            return JsonResponse({"error": f"Unsupported format: {output_format}"}, status=400)
 
+    except ValueError as e:
+        # Handle validation errors
+        return JsonResponse({
+            "error": str(e)
+        }, status=400)
     except Exception as e:
+        # Log the full error for debugging
         import traceback
         traceback.print_exc()
-        return JsonResponse({"error": str(e)}, status=500)
+        # Return a sanitized error message to the client
+        return JsonResponse({
+            "error": "An error occurred while generating the phylogenetic tree. Please try again later."
+        }, status=500)
 
 @csrf_exempt
 @require_http_methods(["GET"])

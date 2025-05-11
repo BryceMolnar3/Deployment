@@ -39,6 +39,21 @@ import NavigationBar from '../components/NavigationBar';
 // API base URL - can be configured based on environment
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
+interface FormData {
+  ms_id: string;
+  sigla: string;
+  date: string;
+  other_names: string;
+  contents: string;
+  place_of_origin: string;
+  total_folia: string;
+  dimensions: string;
+  materials: string;
+  laod_folia: string;
+  format_description: string;
+  transcription: string;
+}
+
 interface Draft {
   _id: string;
   filename: string;
@@ -62,7 +77,7 @@ interface Draft {
 }
 
 function NewDataEntry() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     ms_id: '',
     sigla: '',
     date: '',
@@ -122,12 +137,10 @@ function NewDataEntry() {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
-    setFormData(function(prev) {
-      return {
-        ...prev,
-        [name]: value
-      };
-    });
+    setFormData((prev: FormData) => ({
+      ...prev,
+      [name]: value
+    }));
   }
 
   function handleImageClick() {
@@ -149,7 +162,7 @@ function NewDataEntry() {
   }
 
   function handleClear() {
-    setFormData({
+    const emptyFormData: FormData = {
       ms_id: '',
       sigla: '',
       date: '',
@@ -162,7 +175,8 @@ function NewDataEntry() {
       laod_folia: '',
       format_description: '',
       transcription: ''
-    });
+    };
+    setFormData(emptyFormData);
     setSelectedImage(null);
     setSelectedImageFile(null);
     if (fileInputRef.current) {
@@ -171,7 +185,7 @@ function NewDataEntry() {
   }
 
   function loadDraft(draft: Draft) {
-    setFormData({
+    const newFormData: FormData = {
       ms_id: draft.metadata['MS ID:'] || '',
       sigla: draft.filename.replace('.docx', ''),
       date: draft.metadata['Date:'] || '',
@@ -184,7 +198,8 @@ function NewDataEntry() {
       laod_folia: draft.metadata['Laod Folia:'] || '',
       format_description: draft.metadata['Format Description:'] || '',
       transcription: draft.verses.map(v => v.verse_text).join('\n')
-    });
+    };
+    setFormData(newFormData);
     if (draft.image_filename) {
       setSelectedImage(`${API_BASE_URL}/media/${draft.image_filename}`);
       setSelectedImageFile(null);
