@@ -10,10 +10,11 @@ import {
   Button,
   HStack
 } from '@chakra-ui/react';
-import NavigationBar from '../components/NavigationBar.tsx';
-import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
-import { collationService } from '../services/collationService.ts';
-import { API_BASE_URL } from '../config.ts';
+import NavigationBar from '../components/NavigationBar';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext';
+import { collationService } from '../services/collationService';
+import { API_BASE_URL } from '../config';
+import Tree from 'react-d3-tree';
 
 function PhylogeneticAnalysis() {
   const { settings } = useDisplaySettings();

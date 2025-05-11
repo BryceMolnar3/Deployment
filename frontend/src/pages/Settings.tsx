@@ -20,8 +20,8 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { ViewIcon, RepeatIcon, EditIcon, AddIcon, DeleteIcon } from '@chakra-ui/icons';
-import NavigationBar from '../components/NavigationBar.tsx';
-import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
+import NavigationBar from '../components/NavigationBar';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext';
 
 // Default variation types
 const defaultVariationTypes = [

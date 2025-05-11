@@ -10,10 +10,10 @@ import {
   HStack,
   Text,
 } from '@chakra-ui/react';
-import NavigationBar from '../components/NavigationBar.tsx';
-import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
-import { collationService } from '../services/collationService.ts';
-import PhylogeneticTree from '../components/PhylogeneticTree.tsx';
+import NavigationBar from '../components/NavigationBar';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext';
+import { collationService } from '../services/collationService';
+import PhylogeneticTree from '../components/PhylogeneticTree';
 
 function PhylogeneticTreePage() {
   const { settings } = useDisplaySettings();

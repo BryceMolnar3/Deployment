@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import Tree from 'react-d3-tree';
-import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext';
 
 export interface TreeNode {
   name: string;

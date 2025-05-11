@@ -22,9 +22,9 @@ import {
   Textarea,
   IconButton,
 } from '@chakra-ui/react';
-import NavigationBar from '../components/NavigationBar.tsx';
+import NavigationBar from '../components/NavigationBar';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext';
 import { DragHandleIcon, EditIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 
 // API base URL - can be configured based on environment

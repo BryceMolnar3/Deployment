@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Flex, Heading, Text, Spinner } from '@chakra-ui/react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import NavigationBar from '../../components/NavigationBar.tsx';
-import { useDisplaySettings } from '../../contexts/DisplaySettingsContext.tsx';
+import NavigationBar from '../../components/NavigationBar';
+import { useDisplaySettings } from '../../contexts/DisplaySettingsContext';
 
 interface LocationState {
   verseNumber?: number;

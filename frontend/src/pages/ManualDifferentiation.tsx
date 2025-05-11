@@ -14,8 +14,8 @@ import {
   Alert,
   AlertIcon,
 } from '@chakra-ui/react';
-import NavigationBar from '../components/NavigationBar.tsx';
-import { useDisplaySettings } from '../contexts/DisplaySettingsContext.tsx';
+import NavigationBar from '../components/NavigationBar';
+import { useDisplaySettings } from '../contexts/DisplaySettingsContext';
 
 interface WordComparison {
   verseNumber: number;
@@ -194,7 +194,7 @@ function generateWordComparisons(
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[.,();`’']/g, '')
+      .replace(/[.,();`'']/g, '')
       .split(/\s+/)
       .filter((w) => w.length > 0);
 
@@ -202,7 +202,7 @@ function generateWordComparisons(
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[.,();`’']/g, '')
+      .replace(/[.,();`'']/g, '')
       .split(/\s+/)
       .filter((w) => w.length > 0);
 
