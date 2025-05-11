@@ -70,7 +70,7 @@ const variationTypesService = {
   async deleteType(index: number) {
     // TODO: Replace with actual API call
     const savedTypes = await this.fetchTypes();
-    const newTypes = savedTypes.filter(function(_, i) { return i !== index; });
+    const newTypes = savedTypes.filter((_: string, i: number) => i !== index);
     await this.saveTypes(newTypes);
     return newTypes;
   }
