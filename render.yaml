@@ -3,8 +3,17 @@ services:
     name: collation-app
     env: python
     buildCommand: |
+      # Build frontend
+      cd frontend
+      npm install
+      npm run build
+      cd ..
+      # Build backend
       cd backend
       pip install -r requirements.txt
+      # Copy frontend build to Django static directory
+      mkdir -p static
+      cp -r ../frontend/build/* static/
       python manage.py collectstatic --noinput
     startCommand: |
       cd backend
