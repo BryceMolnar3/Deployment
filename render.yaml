@@ -5,18 +5,12 @@ services:
     buildCommand: |
       # Build frontend
       cd frontend
-      echo "Current directory: $(pwd)"
-      echo "Listing frontend directory:"
-      ls -la
-      echo "Listing src directory:"
-      ls -la src
-      echo "Listing services directory:"
-      ls -la src/services
       npm install
       npm run build
       cd ..
       # Build backend
       cd backend
+      python -m pip install --upgrade pip
       pip install -r requirements.txt
       # Copy frontend build to Django static directory
       mkdir -p static
@@ -24,7 +18,9 @@ services:
       python manage.py collectstatic --noinput
     startCommand: |
       cd backend
-      gunicorn collation_backend.wsgi:application
+      export PATH="/opt/render/project/poetry/bin:$PATH"
+      python manage.py migrate
+      gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SECRET_KEY
         sync: false
