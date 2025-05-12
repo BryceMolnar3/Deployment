@@ -500,8 +500,8 @@ def save_comparison(request):
             # Create ComparisonResult instance
             comparison_result_data = {
                 "word_comparison": word_comparison_instance.id,
-                "is_significant": is_significant,
-                "variation_type": data.get("variationType", ""),
+                "isSignificant": is_significant,
+                "variationType": data.get("variationType", ""),
                 "timestamp": timestamp,
             }
             comparison_result_serializer = ComparisonResultSerializer(data=comparison_result_data)
@@ -512,8 +512,10 @@ def save_comparison(request):
 
                 return Response(comparison_result_serializer.data, status=status.HTTP_201_CREATED)
             else:
+                print("ComparisonResult validation errors:", comparison_result_serializer.errors)
                 return Response(comparison_result_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
+            print("WordComparison validation errors:", word_comparison_serializer.errors)
             return Response(word_comparison_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

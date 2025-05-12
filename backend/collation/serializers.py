@@ -28,10 +28,12 @@ class WordComparisonSerializer(serializers.ModelSerializer):
 
 class ComparisonResultSerializer(serializers.ModelSerializer):
     word_comparison = serializers.PrimaryKeyRelatedField(queryset=WordComparison.objects.all())
+    isSignificant = serializers.BooleanField(source='is_significant')
+    variationType = serializers.CharField(source='variation_type')
 
     class Meta:
         model = ComparisonResult
-        fields = ['word_comparison', 'is_significant', 'variation_type', 'timestamp']
+        fields = ['word_comparison', 'isSignificant', 'variationType', 'timestamp']
 
 class ComparisonResultWithDetailsSerializer(serializers.ModelSerializer):
     """
