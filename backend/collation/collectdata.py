@@ -146,14 +146,8 @@ def send_to_mongodb(document_data, image_file_object=None, image_filename=None, 
     Connects to MongoDB and inserts the document_data into the specified collection.
     Optionally stores an image in GridFS if image_file_object and image_filename are provided.
     """
-    mongo_uri_env = os.environ.get('MONGODB_URI')  # Changed to MONGODB_URI
-    if not mongo_uri_env:
-        print("WARNING: MONGODB_URI environment variable not set. Falling back to localhost.")
-        mongo_uri_to_use = "mongodb://127.0.0.1:27017"
-    else:
-        mongo_uri_to_use = mongo_uri_env
-
-    client = MongoClient(mongo_uri_to_use)
+    mongo_uri_env = os.environ.get('MONGODB_URI')
+    client = MongoClient(mongo_uri_env)
     db = client[db_name]
     
     if image_file_object and image_filename:
