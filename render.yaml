@@ -2,9 +2,21 @@ services:
   - type: web
     name: collation-app
     env: python
-    buildCommand: cd frontend && npm install && npm run build && cd .. && cd backend/collation_backend && pip install -r ../requirements.txt && python manage.py collectstatic --noinput
+    buildCommand: |
+      # Create src directory and copy files
+      mkdir -p /opt/render/project/src
+      cp -r backend /opt/render/project/src/
+      cp -r frontend /opt/render/project/src/
+      # Build frontend
+      cd /opt/render/project/src/frontend
+      npm install
+      npm run build
+      # Setup backend
+      cd /opt/render/project/src/backend/collation_backend
+      pip install -r ../requirements.txt
+      python manage.py collectstatic --noinput
     startCommand: |
-      cd backend/collation_backend
+      cd /opt/render/project/src/backend/collation_backend
       python manage.py migrate
       gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
