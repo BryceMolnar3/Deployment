@@ -11,6 +11,9 @@ services:
       cd /opt/render/project/src/frontend
       npm install
       npm run build
+      # Copy frontend build to backend static directory
+      mkdir -p /opt/render/project/src/backend/static
+      cp -r /opt/render/project/src/frontend/build/* /opt/render/project/src/backend/static/
       # Setup backend
       cd /opt/render/project/src/backend
       python -m venv .venv
