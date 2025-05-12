@@ -11,15 +11,17 @@ services:
       cd /opt/render/project/src/frontend
       npm install
       npm run build
-      # Copy frontend build to backend static directory
-      mkdir -p /opt/render/project/src/backend/static
-      cp -r /opt/render/project/src/frontend/build/* /opt/render/project/src/backend/static/
       # Setup backend
       cd /opt/render/project/src/backend
       python -m venv .venv
       . .venv/bin/activate
       pip install -r requirements.txt
       python patch_collatex.py
+      # Create static directories
+      mkdir -p staticfiles
+      mkdir -p media
+      # Copy frontend build to static directory
+      cp -r /opt/render/project/src/frontend/build/* staticfiles/
       python manage.py collectstatic --noinput
     startCommand: |
       cd /opt/render/project/src/backend
