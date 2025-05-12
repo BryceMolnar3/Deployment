@@ -55,7 +55,7 @@ interface Manuscript {
   }[];
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 function createComparisonKey(w: WordComparison): string {
   return `${w.verseNumber}-${w.word1}-${w.word2}-${w.position}-${w.manuscriptSigla}`;

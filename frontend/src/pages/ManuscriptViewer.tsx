@@ -28,7 +28,7 @@ import { useDisplaySettings } from '../contexts/DisplaySettingsContext';
 import { DragHandleIcon, EditIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 
 // API base URL - can be configured based on environment
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 interface Manuscript {
   _id: string;
