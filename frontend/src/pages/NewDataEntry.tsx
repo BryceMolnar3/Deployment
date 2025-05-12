@@ -77,6 +77,8 @@ interface Draft {
 }
 
 function NewDataEntry() {
+  console.log('NewDataEntry - API_BASE_URL:', API_BASE_URL);
+  console.log('NewDataEntry - process.env.REACT_APP_API_BASE_URL:', process.env.REACT_APP_API_BASE_URL);
   const [formData, setFormData] = useState<FormData>({
     ms_id: '',
     sigla: '',
@@ -294,7 +296,7 @@ function NewDataEntry() {
     }
 
     const endpoint = existingDraft ? 'draft/replace/' : 'draft/';
-    const response = await fetch(`${API_BASE_URL}/api/documents/${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}/documents/${endpoint}`, {
       method: 'POST',
       body: formDataToSend
     });
@@ -361,7 +363,7 @@ function NewDataEntry() {
         formDataToSend.append('image', selectedImageFile, selectedImageFile.name);
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/documents/create/`, {
+      const response = await fetch(`${API_BASE_URL}/documents/create/`, {
         method: 'POST',
         body: formDataToSend
       });
@@ -373,7 +375,7 @@ function NewDataEntry() {
 
       // Delete the draft if it exists
       try {
-        await fetch(`${API_BASE_URL}/api/documents/draft/${formData.sigla}.docx/delete/`, {
+        await fetch(`${API_BASE_URL}/documents/draft/${formData.sigla}.docx/delete/`, {
           method: 'DELETE',
         });
         fetchDrafts();
@@ -408,7 +410,7 @@ function NewDataEntry() {
 
   async function handleDeleteDraft(filename: string) {
     try {
-      await fetch(`${API_BASE_URL}/api/documents/draft/${filename}/delete/`, {
+      await fetch(`${API_BASE_URL}/documents/draft/${filename}/delete/`, {
         method: 'DELETE',
       });
       fetchDrafts();

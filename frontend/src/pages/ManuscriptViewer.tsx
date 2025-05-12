@@ -126,7 +126,7 @@ function ManuscriptViewer() {
     async function fetchComparisons() {
       try {
         setError(null);
-        const res = await fetch(`${API_BASE_URL}/api/comparisons/all`);
+        const res = await fetch(`${API_BASE_URL}/comparisons/all`);
         if (!res.ok) {
           throw new Error('Failed to fetch comparisons');
         }
@@ -149,7 +149,7 @@ function ManuscriptViewer() {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch(`${API_BASE_URL}/api/documents/${sigla}.docx`);
+        const response = await fetch(`${API_BASE_URL}/documents/${sigla}.docx`);
         if (!response.ok) {
           throw new Error('Failed to fetch manuscript');
         }
@@ -209,7 +209,7 @@ function ManuscriptViewer() {
   //---------------------------------------------------------------------
   async function handleUnsaveComparison(compId: number) {
     try {
-      const delRes = await fetch(`${API_BASE_URL}/api/comparisons/${compId}`, {
+      const delRes = await fetch(`${API_BASE_URL}/comparisons/${compId}`, {
         method: 'DELETE',
       });
       if (!delRes.ok) {
@@ -275,7 +275,7 @@ function ManuscriptViewer() {
       );
 
       const uploadResponse = await fetch(
-        `${API_BASE_URL}/api/documents/${manuscript.filename}/update-document`,
+        `${API_BASE_URL}/documents/${manuscript.filename}/update-document`,
         {
           method: 'POST',
           body: formData,
@@ -477,7 +477,7 @@ function ManuscriptViewer() {
         formData.append('document', JSON.stringify(editedManuscript));
 
         const uploadResponse = await fetch(
-          `${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-document`,
+          `${API_BASE_URL}/documents/${editedManuscript.filename}/update-document`,
           {
             method: 'POST',
             body: formData,
@@ -501,7 +501,7 @@ function ManuscriptViewer() {
       } else {
         // No new image, use JSON update
         const response = await fetch(
-          `${API_BASE_URL}/api/documents/${editedManuscript.filename}/update-manuscript`,
+          `${API_BASE_URL}/documents/${editedManuscript.filename}/update-manuscript`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -544,7 +544,7 @@ function ManuscriptViewer() {
     try {
       setIsDeleting(true);
       const response = await fetch(
-        `${API_BASE_URL}/api/documents/${manuscript.filename}/delete`,
+        `${API_BASE_URL}/documents/${manuscript.filename}/delete`,
         {
           method: 'DELETE',
         }
@@ -824,7 +824,7 @@ function ManuscriptViewer() {
                               try {
                                 // Call DELETE /api/comparisons/:id
                                 const delRes = await fetch(
-                                  `${API_BASE_URL}/api/comparisons/${comp.id}`,
+                                  `${API_BASE_URL}/comparisons/${comp.id}`,
                                   { method: 'DELETE' }
                                 );
                                 if (!delRes.ok) {

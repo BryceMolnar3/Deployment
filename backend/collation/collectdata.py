@@ -3,6 +3,7 @@ import docx
 from pymongo import MongoClient
 import nltk
 import gridfs
+import os
 
 def extract_metadata(doc_path):
     """
@@ -140,22 +141,34 @@ def match_verses(left_text, middle_text):
     return matched_text
 
 #Ian Local server: mongodb://127.0.0.1:27017
-def send_to_mongodb(document_data, mongo_uri="mongodb://127.0.0.1:27017", db_name="document_db", collection_name="documents"):
+def send_to_mongodb(document_data, image_file_object=None, image_filename=None, db_name="document_db", collection_name="documents"):
     """
     Connects to MongoDB and inserts the document_data into the specified collection.
+    Optionally stores an image in GridFS if image_file_object and image_filename are provided.
     """
-    client = MongoClient(mongo_uri)
+    mongo_uri_env = os.environ.get('MONGO_URI')  # Fetch from environment variable
+    if not mongo_uri_env:
+        print("WARNING: MONGO_URI environment variable not set. Falling back to localhost.")
+        mongo_uri_to_use = "mongodb://127.0.0.1:27017"
+    else:
+        mongo_uri_to_use = mongo_uri_env
+
+    client = MongoClient(mongo_uri_to_use)
     db = client[db_name]
-    fs = gridfs.GridFS(db)
-
-    # Store the image and get its file ID
-    with open(image_path, "rb") as f:
-        image_id = fs.put(f, filename=image_path.split("/")[-1])
     
-    # Add the image ID to your document
-    document_data["image_file_id"] = image_id
-
-    # Insert the updated document
+    if image_file_object and image_filename:
+        fs = gridfs.GridFS(db)
+        try:
+            # Ensure the file pointer is at the beginning if it's a file-like object that has been read
+            if hasattr(image_file_object, 'seek') and callable(image_file_object.seek):
+                image_file_object.seek(0)
+            image_id = fs.put(image_file_object, filename=image_filename)
+            document_data["image_file_id"] = str(image_id) # Store GridFS ID as string
+        except Exception as e:
+            print(f"Error saving image to GridFS: {e}")
+            # Decide if you want to proceed without the image or raise an error
+    
+    # collection = db[collection_name] # This line was part of original commented out block
     result = db[collection_name].insert_one(document_data)
     return result.inserted_id
     
@@ -165,7 +178,7 @@ def send_to_mongodb(document_data, mongo_uri="mongodb://127.0.0.1:27017", db_nam
 
 if __name__ == "__main__":
     file_path = "test.docx"  # Change this to your filename if needed.
-    image_path = "manuscript.png"
+    # image_path = "manuscript.png" # Original image_path, not used directly in send_to_mongodb anymore
     
     try:
         # Extract metadata from the first table.
@@ -195,10 +208,25 @@ if __name__ == "__main__":
             "verses": matched_verses
         }
         
-        # Send the document to MongoDB.
+        # Example for local testing with an image:
+        # Ensure you have a 'manuscript.png' in the same directory as collectdata.py for this to work
+        # image_to_upload = None
+        # local_image_filename = "manuscript.png" 
+        # try:
+        #     with open(local_image_filename, "rb") as img_f:
+        #         image_to_upload = img_f
+        #         # Pass the file object and filename to send_to_mongodb
+        #         inserted_id = send_to_mongodb(document_data, image_file_object=image_to_upload, image_filename=local_image_filename)
+        #         print(f"Data successfully inserted into MongoDB with ID: {inserted_id}\n")
+        # except FileNotFoundError:
+        #     print(f"Local test image '{local_image_filename}' not found. Inserting data without image.")
+        #     inserted_id = send_to_mongodb(document_data) # Call without image params
+        #     print(f"Data successfully inserted into MongoDB with ID: {inserted_id}\n")
+
+        # Simpler call for __main__ if not testing image upload from this script directly:
         inserted_id = send_to_mongodb(document_data)
         print(f"Data successfully inserted into MongoDB with ID: {inserted_id}\n")
-
+        
         # Optionally, also print the extracted data.
         print("Extracted Manuscripts:")
         for i, verse in enumerate(left_rows, start=1):

@@ -300,6 +300,8 @@ const manuscriptService = {
 // The main React component
 //
 function ManualDifferentiation() {
+  console.log('ManualDifferentiation - API_BASE_URL:', API_BASE_URL);
+  console.log('ManualDifferentiation - process.env.REACT_APP_API_BASE_URL:', process.env.REACT_APP_API_BASE_URL);
   const { settings } = useDisplaySettings();
   const toast = useToast();
 
