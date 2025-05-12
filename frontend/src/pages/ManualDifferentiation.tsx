@@ -251,17 +251,17 @@ const manuscriptService = {
     }
     const allManuscripts: Manuscript[] = await res.json();
 
-    // Base = '1.docx'
+    // Base = '1'
     const baseManuscript = allManuscripts.find(
-      (m) => m.filename === '1.docx'
+      (m) => m.filename === '1'
     );
     if (!baseManuscript) {
-      throw new Error(`Base manuscript (1.docx) not found`);
+      throw new Error(`Base manuscript (1) not found`);
     }
 
     const allComparisons: WordComparison[] = [];
     for (const ms of allManuscripts) {
-      if (ms.filename !== '1.docx') {
+      if (ms.filename !== '1') {
         const comps = generateWordComparisons(baseManuscript, ms);
         allComparisons.push(...comps);
       }

@@ -244,7 +244,7 @@ function NewDataEntry() {
       setIsLoading(true);
       
       // Check if a draft with the same filename already exists
-      const existingDraft = drafts.find(draft => draft.filename === `${formData.sigla}.docx`);
+      const existingDraft = drafts.find(draft => draft.filename === `${formData.sigla}`);
       
       if (existingDraft) {
         setExistingDraft(existingDraft);
@@ -269,7 +269,7 @@ function NewDataEntry() {
   async function saveDraft() {
     const formDataToSend = new FormData();
     formDataToSend.append('document', JSON.stringify({
-      filename: `${formData.sigla}.docx`,
+      filename: formData.sigla,
       metadata: {
         'MS ID:': formData.ms_id,
         'Other Names:': formData.other_names,
@@ -342,7 +342,7 @@ function NewDataEntry() {
       
       // Add the main document data
       formDataToSend.append('document', JSON.stringify({
-        filename: `${formData.sigla}.docx`,
+        filename: formData.sigla,
         metadata: {
           'MS ID:': formData.ms_id,
           'Other Names:': formData.other_names,
@@ -375,7 +375,7 @@ function NewDataEntry() {
 
       // Delete the draft if it exists
       try {
-        await fetch(`${API_BASE_URL}/documents/draft/${formData.sigla}.docx/delete/`, {
+        await fetch(`${API_BASE_URL}/documents/draft/${formData.sigla}/delete/`, {
           method: 'DELETE',
         });
         fetchDrafts();

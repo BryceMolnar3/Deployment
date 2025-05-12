@@ -143,7 +143,7 @@ def search_documents(request):
 def get_document(request, filename):
     try:
         # Construct the full filename as stored in the DB
-        db_filename = f"{filename}.docx"
+        db_filename = filename
         
         # Find document by the full filename
         document = documents.find_one({'filename': db_filename})
