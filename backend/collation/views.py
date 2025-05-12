@@ -142,15 +142,24 @@ def search_documents(request):
 @require_http_methods(["GET"])
 def get_document(request, filename):
     try:
-        # Find document by filename
-        document = documents.find_one({'filename': filename})
+        # Construct the full filename as stored in the DB
+        db_filename = f"{filename}.docx"
+        
+        # Find document by the full filename
+        document = documents.find_one({'filename': db_filename})
+        
         if document:
-            # Convert ObjectId to string for JSON serialization
             document['_id'] = str(document['_id'])
             return JsonResponse(document)
         else:
-            return JsonResponse({'error': 'Document not found'}, status=404)
+            # Log which filename was not found for easier debugging
+            print(f"INFO: Document not found with filename: {db_filename}") 
+            return JsonResponse({'error': f'Document with sigla {filename} not found'}, status=404)
     except Exception as e:
+        # Log the exception for easier debugging
+        print(f"ERROR in get_document for filename {filename}: {str(e)}")
+        import traceback
+        traceback.print_exc() # Print full traceback to logs
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
