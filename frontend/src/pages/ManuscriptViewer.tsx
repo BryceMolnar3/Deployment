@@ -149,7 +149,7 @@ function ManuscriptViewer() {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch(`${API_BASE_URL}/documents/${sigla}.docx`);
+        const response = await fetch(`${API_BASE_URL}/documents/${sigla}`);
         if (!response.ok) {
           throw new Error('Failed to fetch manuscript');
         }
