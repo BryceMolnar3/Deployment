@@ -12,18 +12,22 @@ services:
       npm install
       npm run build
       # Setup backend
-      cd /opt/render/project/src/backend/collation_backend
-      pip install -r ../requirements.txt
+      cd /opt/render/project/src/backend
+      python -m venv .venv
+      . .venv/bin/activate
+      pip install -r requirements.txt
+      python patch_collatex.py
       python manage.py collectstatic --noinput
     startCommand: |
-      cd /opt/render/project/src/backend/collation_backend
+      cd /opt/render/project/src/backend
+      . .venv/bin/activate
       python manage.py migrate
       gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: SECRET_KEY
         sync: false
       - key: DEBUG
-        value: false
+        value: "false"
       - key: ALLOWED_HOSTS
         value: "*"
       - key: MONGODB_URI
@@ -31,6 +35,6 @@ services:
       - key: REACT_APP_API_BASE_URL
         value: "/api"
       - key: STATIC_ROOT
-        value: "static"
+        value: "staticfiles"
       - key: MEDIA_ROOT
-        value: "../media" 
+        value: "media" 
