@@ -24,7 +24,7 @@ class DocumentAPITest(TestCase):
     def setUpTestData(cls):
         """Set up test database with real MongoDB entries"""
         cls.client = APIClient()
-        mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+        mongo_uri = os.getenv('MONGODB_URI')
         # Connect to MongoDB
         cls.client_mongo = MongoClient(mongo_uri) 
         cls.db = cls.client_mongo["document_db"]  
@@ -142,7 +142,7 @@ class PhylogeneticTreeTests(TestCase):
     def setUpTestData(cls):
         """Set up test database with real MongoDB entries"""
         cls.client = APIClient()
-        mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+        mongo_uri = os.getenv('MONGODB_URI')
         # Connect to MongoDB
         cls.client_mongo = MongoClient(mongo_uri) 
         cls.db = cls.client_mongo["document_db"]  

@@ -93,7 +93,7 @@ DATABASES = {
 }
 
 # MongoDB connection
-MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017/document_db')
+MONGODB_URI = os.environ.get('MONGODB_URI')
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

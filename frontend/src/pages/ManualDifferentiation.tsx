@@ -245,7 +245,7 @@ const defaultVariationTypes = [
 //
 const manuscriptService = {
   async fetchComparisons(): Promise<WordComparison[]> {
-    const res = await fetch(`${API_BASE_URL}/api/documents/`);
+    const res = await fetch(`${API_BASE_URL}/documents/`);
     if (!res.ok) {
       throw new Error('Failed to fetch manuscripts');
     }
@@ -270,7 +270,7 @@ const manuscriptService = {
   },
 
   async fetchSavedComparisons(): Promise<ComparisonResult[]> {
-    const res = await fetch(`${API_BASE_URL}/api/comparisons/all`);
+    const res = await fetch(`${API_BASE_URL}/comparisons/all`);
     if (!res.ok) {
       throw new Error('Failed to fetch saved comparisons');
     }
@@ -282,7 +282,7 @@ const manuscriptService = {
     isSignificant: boolean;
     variationType: string;
   }): Promise<ComparisonResult> {
-    const res = await fetch(`${API_BASE_URL}/api/comparisons/`, {
+    const res = await fetch(`${API_BASE_URL}/comparisons/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

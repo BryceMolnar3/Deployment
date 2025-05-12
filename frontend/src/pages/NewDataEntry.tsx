@@ -116,7 +116,7 @@ function NewDataEntry() {
   async function fetchDrafts() {
     try {
       setIsLoadingDrafts(true);
-      const response = await fetch(`${API_BASE_URL}/api/documents/drafts/`);
+      const response = await fetch(`${API_BASE_URL}/documents/drafts/`);
       if (!response.ok) {
         throw new Error('Failed to fetch drafts');
       }

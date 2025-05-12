@@ -156,7 +156,7 @@ function sortManuscripts(manuscripts: Manuscript[], sortOption: SortOption): Man
 const manuscriptService = {
   async getAllManuscripts(): Promise<Manuscript[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/`);
+      const response = await fetch(`${API_BASE_URL}/documents/`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch manuscripts: ${errorText}`);
@@ -171,7 +171,7 @@ const manuscriptService = {
 
   async searchManuscripts(query: string): Promise<Manuscript[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/search/?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`${API_BASE_URL}/documents/search/?q=${encodeURIComponent(query)}`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to search manuscripts: ${errorText}`);
@@ -186,7 +186,7 @@ const manuscriptService = {
 
   async deleteManuscript(filename: string): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/${filename}/delete`, {
+      const response = await fetch(`${API_BASE_URL}/documents/${filename}/delete`, {
         method: 'DELETE',
       });
       if (!response.ok) {

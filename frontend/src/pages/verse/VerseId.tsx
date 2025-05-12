@@ -53,7 +53,7 @@ function VerseId() {
     async function fetchManuscripts() {
       try {
         setIsLoading(true);
-        const response = await fetch(`${API_BASE_URL}/api/documents/`);
+        const response = await fetch(`${API_BASE_URL}/documents/`);
         if (!response.ok) {
           throw new Error('Failed to fetch manuscripts');
         }

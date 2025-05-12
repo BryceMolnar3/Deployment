@@ -17,7 +17,7 @@ from .models import ComparisonResult
 class PhylogeneticTreeBuilder:
     def __init__(self):
         # Use environment variables for MongoDB connection
-        mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+        mongo_uri = os.getenv('MONGODB_URI')
         db_name = os.getenv('MONGODB_DB_NAME', 'document_db')
         self.client = MongoClient(mongo_uri)
         self.db = self.client[db_name]
