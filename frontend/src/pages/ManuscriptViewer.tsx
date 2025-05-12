@@ -150,10 +150,11 @@ function ManuscriptViewer() {
         setError(null);
 
         const response = await fetch(`${API_BASE_URL}/documents/${sigla}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch manuscript');
-        }
         const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch manuscript');
+        }
 
         // Transform verses to ensure consistent format
         const transformedData = {
