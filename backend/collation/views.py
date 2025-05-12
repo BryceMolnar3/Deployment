@@ -481,11 +481,19 @@ def collate_manuscripts(request):
 @api_view(['POST'])
 def save_comparison(request):
     if request.method == 'POST':
+        print("\n=== SAVE COMPARISON REQUEST ===")
+        print("Request data:", request.data)
+        
         # Extract data from the request body
         data = request.data
         # Create WordComparison instance
         word_comparison_data = data.get("wordComparison", {})
+        print("Word comparison data:", word_comparison_data)
+        
         word_comparison_serializer = WordComparisonSerializer(data=word_comparison_data)
+        print("Word comparison serializer is valid:", word_comparison_serializer.is_valid())
+        if not word_comparison_serializer.is_valid():
+            print("Word comparison validation errors:", word_comparison_serializer.errors)
 
         is_significant = data.get("isSignificant", False)
         if not is_significant:
@@ -494,6 +502,7 @@ def save_comparison(request):
         if word_comparison_serializer.is_valid():
             # Save WordComparison instance to the database
             word_comparison_instance = word_comparison_serializer.save()
+            print("Saved word comparison instance:", word_comparison_instance.id)
 
             timestamp = datetime.now().isoformat()
 
@@ -504,18 +513,22 @@ def save_comparison(request):
                 "variationType": data.get("variationType", ""),
                 "timestamp": timestamp,
             }
+            print("Comparison result data:", comparison_result_data)
+            
             comparison_result_serializer = ComparisonResultSerializer(data=comparison_result_data)
+            print("Comparison result serializer is valid:", comparison_result_serializer.is_valid())
+            if not comparison_result_serializer.is_valid():
+                print("Comparison result validation errors:", comparison_result_serializer.errors)
             
             if comparison_result_serializer.is_valid():
                 # Save ComparisonResult instance to the database
                 comparison_result_instance = comparison_result_serializer.save()
+                print("Saved comparison result instance:", comparison_result_instance.id)
 
                 return Response(comparison_result_serializer.data, status=status.HTTP_201_CREATED)
             else:
-                print("ComparisonResult validation errors:", comparison_result_serializer.errors)
                 return Response(comparison_result_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
-            print("WordComparison validation errors:", word_comparison_serializer.errors)
             return Response(word_comparison_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

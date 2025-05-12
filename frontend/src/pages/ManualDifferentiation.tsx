@@ -282,6 +282,7 @@ const manuscriptService = {
     isSignificant: boolean;
     variationType: string;
   }): Promise<ComparisonResult> {
+    console.log('Saving comparison with data:', data);
     const res = await fetch(`${API_BASE_URL}/comparisons/`, {
       method: 'POST',
       headers: {
@@ -290,7 +291,9 @@ const manuscriptService = {
       body: JSON.stringify(data),
     });
     if (!res.ok) {
-      throw new Error('Failed to save comparison');
+      const errorData = await res.json();
+      console.error('Error response:', errorData);
+      throw new Error(errorData.error || 'Failed to save comparison');
     }
     return await res.json();
   },
