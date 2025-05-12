@@ -2,44 +2,73 @@ services:
   - type: web
     name: collation-app
     env: python
+    region: oregon
+    plan: free
     buildCommand: |
-      # Create src directory and copy files
-      mkdir -p /opt/render/project/src
-      cp -r backend /opt/render/project/src/
-      cp -r frontend /opt/render/project/src/
-      # Build frontend
-      cd /opt/render/project/src/frontend
+      set -e
+      
+      echo "--- Starting Frontend Build ---"
+      cd frontend
       npm install
       npm run build
-      # Setup backend
-      cd /opt/render/project/src/backend
-      python -m venv .venv
-      . .venv/bin/activate
+      cd ..
+      echo "--- Frontend Build Complete ---"
+
+      echo "--- Starting Backend Setup ---"
+      cd backend
+
+      python3.9 -m venv .venv
+      source .venv/bin/activate
+      pip install --upgrade pip
       pip install -r requirements.txt
-      python patch_collatex.py
-      # Create static directories
-      mkdir -p staticfiles
-      mkdir -p media
-      # Copy frontend build to static directory
-      cp -r /opt/render/project/src/frontend/build/* staticfiles/
-      python manage.py collectstatic --noinput
+
+      echo "--- Preparing Backend Directories for Django ---"
+      mkdir -p templates
+      mkdir -p static
+
+      echo "--- Copying Frontend Build Artifacts to Backend ---"
+      if [ -f ../frontend/build/index.html ]; then
+        cp ../frontend/build/index.html ./templates/
+        echo "Copied index.html to backend/templates/"
+      else
+        echo "ERROR: ../frontend/build/index.html not found! Ensure frontend build was successful."
+        exit 1
+      fi
+      
+      if [ -d ../frontend/build/static ] && [ "$(ls -A ../frontend/build/static)" ]; then
+        cp -r ../frontend/build/static/* ./static/
+        echo "Copied frontend static assets from ../frontend/build/static/ to backend/static/"
+      else
+        echo "WARNING: ../frontend/build/static/ directory is empty or does not exist. This might be okay if your frontend has no static assets in a 'static' subfolder of its build output, but usually React apps do."
+      fi
+      
+      echo "--- Running Django Collectstatic ---"
+      python manage.py collectstatic --noinput --clear
+      echo "--- Collectstatic Complete ---"
+      
+      echo "Contents of backend/templates:"
+      ls -l ./templates
+      echo "Contents of backend/static:"
+      ls -l ./static
+      echo "Contents of backend/staticfiles (STATIC_ROOT):"
+      ls -l ./staticfiles
+      
+      cd ..
+      echo "--- Backend Setup Complete ---"
     startCommand: |
-      cd /opt/render/project/src/backend
-      . .venv/bin/activate
-      python manage.py migrate
-      gunicorn collation_backend.wsgi:application --bind 0.0.0.0:$PORT
+      cd backend && source .venv/bin/activate && gunicorn collation_backend.wsgi:application --workers 2 --threads 4 --worker-tmp-dir /dev/shm
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.16
       - key: SECRET_KEY
-        sync: false
+        generateValue: true
       - key: DEBUG
-        value: "false"
+        value: 'False'
       - key: ALLOWED_HOSTS
-        value: "*"
+        value: '.onrender.com'
       - key: MONGODB_URI
         sync: false
       - key: REACT_APP_API_BASE_URL
-        value: "/api"
-      - key: STATIC_ROOT
-        value: "staticfiles"
-      - key: MEDIA_ROOT
-        value: "media" 
+        value: '/api'
+      - key: WEB_CONCURRENCY
+        value: 4 
