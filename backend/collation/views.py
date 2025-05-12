@@ -24,7 +24,7 @@ import re
 
 
 # MongoDB connection
-client = MongoClient(settings.MONGODB_URI)
+client = MongoClient(settings.MONGODB_URI_FULL)
 db = client.document_db
 documents = db['documents']
 
@@ -85,7 +85,7 @@ def get_all_comparisons(request):
 
 
 
-client = MongoClient(settings.MONGODB_URI)
+client = MongoClient(settings.MONGODB_URI_FULL)
 db = client.document_db
 documents = db['documents']
 

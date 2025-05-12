@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'collation',
     'whitenoise.runserver_nostatic',  # Add whitenoise
+    'djongo', # Add djongo
 ]
 
 MIDDLEWARE = [
@@ -85,6 +86,8 @@ REST_FRAMEWORK = {
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+MONGODB_URI_FULL = os.environ.get('MONGODB_URI')
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -92,8 +95,32 @@ DATABASES = {
     }
 }
 
-# MongoDB connection
-MONGODB_URI = os.environ.get('MONGODB_URI')
+if MONGODB_URI_FULL:
+    print(f"INFO: settings.py - Configuring 'mongodb' database with URI from environment.")
+    DATABASES['mongodb'] = {
+        'ENGINE': 'djongo',
+        'CLIENT': {
+            'host': MONGODB_URI_FULL,
+        },
+        # Djongo typically infers the database name from the URI.
+        # If your MONGODB_URI_FULL is like mongodb+srv://.../yourDBname?retryWrites...
+        # then 'yourDBname' will be used.
+        # If not, or if you need to be explicit:
+        # 'NAME': 'your_transcription_db_name', # Or parse from MONGODB_URI_FULL
+        'ENFORCE_SCHEMA': False
+    }
+else:
+    print("WARNING: settings.py - MONGODB_URI not set in environment. 'mongodb' database will not be configured.")
+    # You might want to define a fallback for 'mongodb' or handle this case as an error
+    # depending on whether your app can function without it.
+    # For now, it will simply not be in DATABASES if the URI is missing.
+
+# Database Routers
+# Tells Django which database to use for which app/model.
+DATABASE_ROUTERS = ['collation_backend.routers.CollationRouter'] # Assuming your main project app is collation_backend
+
+# Remove the standalone MONGODB_URI variable as it's now incorporated above
+# MONGODB_URI = os.environ.get('MONGODB_URI') 
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
