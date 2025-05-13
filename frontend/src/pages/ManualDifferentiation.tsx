@@ -283,12 +283,23 @@ const manuscriptService = {
     variationType: string;
   }): Promise<ComparisonResult> {
     console.log('Saving comparison with data:', data);
+    
+    // Ensure all IDs are strings
+    const sanitizedData = {
+      ...data,
+      wordComparison: {
+        ...data.wordComparison,
+        verseNumber: data.wordComparison.verseNumber.toString(),
+        position: data.wordComparison.position.toString()
+      }
+    };
+
     const res = await fetch(`${API_BASE_URL}/comparisons/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(sanitizedData),
     });
     if (!res.ok) {
       const errorData = await res.json();
