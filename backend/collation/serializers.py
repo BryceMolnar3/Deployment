@@ -26,6 +26,14 @@ class WordComparisonSerializer(serializers.ModelSerializer):
         model = WordComparison
         fields = ['verseNumber', 'word1', 'word2', 'position', 'manuscriptSigla']
 
+    def to_internal_value(self, data):
+        # Convert string values to integers where needed
+        if isinstance(data.get('verseNumber'), str):
+            data['verseNumber'] = int(data['verseNumber'])
+        if isinstance(data.get('position'), str):
+            data['position'] = int(data['position'])
+        return super().to_internal_value(data)
+
 class ComparisonResultSerializer(serializers.ModelSerializer):
     word_comparison = serializers.PrimaryKeyRelatedField(queryset=WordComparison.objects.all())
     isSignificant = serializers.BooleanField(source='is_significant')
