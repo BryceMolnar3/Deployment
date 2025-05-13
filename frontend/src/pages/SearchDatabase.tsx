@@ -376,8 +376,8 @@ function SearchDatabase() {
     }
   }
 
-  function handleViewManuscript(sigla: string) {
-    navigate(`/manuscript-viewer/${sigla}`);
+  function handleViewManuscript(manuscript: Manuscript) {
+    navigate(`/manuscript-viewer/${manuscript._id}`);
   }
 
   const handleDelete = async (filename: string) => {
@@ -483,7 +483,7 @@ function SearchDatabase() {
                         <Button
                           size="sm"
                           colorScheme="blue"
-                          onClick={() => handleViewManuscript(manuscript.filename.replace('.docx', ''))}
+                          onClick={() => handleViewManuscript(manuscript)}
                         >
                           View
                         </Button>
